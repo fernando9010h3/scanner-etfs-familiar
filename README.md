@@ -1,0 +1,62 @@
+# Scanner de ETFs — versión familiar (web real)
+
+Web real y gratuita del Scanner de ETFs de Fernando, fuera de Muse, para compartir con un solo enlace (empezando por su hermano). Página + servidor en Node.js 24 **sin ninguna dependencia externa**: solo `node:http` y `fetch` nativo.
+
+## Cómo correrlo local
+
+```bash
+cd scanner-web-familiar
+node server.js
+```
+
+Abre http://localhost:3000 — el puerto se puede cambiar con la variable `PORT` (ej: `PORT=8080 node server.js`).
+
+## Qué hace
+
+- El servidor pide a Yahoo Finance (API de gráficos `v8/finance/chart`, con `User-Agent` de navegador; si `query1` falla reintenta con `query2`) los cierres diarios del último año de cada símbolo.
+- Endpoint JSON: `GET /api/scanner` devuelve los 10 símbolos iniciales (SPYM, QQQM, SCHD, RSP, JEPQ, SPMO, VTI, SCHG, META y AAPL). Acepta `?symbols=SPYM,QQQM` para pedir otros símbolos (los que el usuario agregue en la página). La fila de Apple se consulta como **AAPL** y se muestra como **«APPLE»**, igual que en el scanner de Fernando.
+- Caché en memoria de 15 minutos por símbolo. La página se auto-refresca sola cada 15 minutos y muestra «Actualizado: <hora>».
+- Tipo tomado de Yahoo (`instrumentType`): ETF → píldora «ETF» morada; EQUITY → «Stock» celeste.
+
+## Cálculos (en el servidor)
+
+- Precio actual (`regularMarketPrice`) y Cambio % del día.
+- **RSI 14 Wilder** sobre la serie completa de cierres.
+- **SMA 20/50/100/200**, distancia % del precio a cada una y texto de posición (ej: «Debajo de todas las SMA»).
+- **Señal — regla exacta de Fernando, solo estas 3 etiquetas:**
+  - **Favorable**: precio debajo de TODAS las SMA, o RSI ≤ 35.
+  - **No Favorable**: precio sobre 3 o más SMA, o RSI ≥ 65.
+  - **Interesante**: todo lo demás.
+- **Días en señal**: racha de días de mercado consecutivos terminando hoy con la misma señal actual, recalculando la señal día por día (RSI y SMA de cada día con los datos hasta ese día).
+- **Rango 52 semanas** y serie de 6 meses (cierres + SMA 20/50) para el gráfico del detalle de cada fila.
+
+## Fórmula del Nivel 0–100
+
+La fórmula es propia, simple y determinista, y es exactamente esta (la misma que usa el código y la misma que explica la sección «Cómo leer el scanner» de la página):
+
+Nivel = redondeo de [ 0,6 × (100 − RSI 14) + 0,4 × (25 × número de SMA (20/50/100/200) que están por encima del precio) ], limitado entre 0 y 100.
+
+Es decir: un Nivel más alto combina un RSI bajo (precio menos extendido) con el precio por debajo de más SMA. Si faltara alguna SMA por historial corto, esa SMA simplemente no cuenta en el número de SMA por encima del precio.
+
+## Despliegue gratis en Render (sin desplegar desde aquí)
+
+La cuenta de hosting la crea Fernando. Pasos:
+
+1. Subir esta carpeta (`scanner-web-familiar/`) a un repositorio de GitHub.
+2. En https://render.com → **New + → Web Service** → conectar el repositorio.
+3. Configuración del servicio:
+   - **Runtime**: Node
+   - **Build Command**: (dejar vacío — no hay dependencias que instalar)
+   - **Start Command**: `node server.js`
+   - **Instance Type**: Free
+4. Render asigna el puerto automáticamente con la variable `PORT` (el servidor ya la respeta) y entrega una dirección pública tipo `https://<nombre>.onrender.com` — ese es el enlace para compartir.
+5. Nota de la capa Free de Render: el servicio se duerme tras un rato sin visitas y la primera apertura puede tardar ~30–60 segundos en despertar; después responde normal.
+
+## Límites conocidos
+
+- Yahoo Finance es una fuente **no oficial y de uso personal**: funciona sin clave, pero puede cambiar o limitar peticiones algún día. Para cobrar por el servicio haría falta una fuente de datos con licencia comercial.
+- «Varias veces al día»: en horario de mercado la página se refresca cada 15 minutos (la caché del servidor también es de 15 minutos); las señales basadas en cierres diarios (RSI/SMA) solo cambian de verdad al cierre.
+- Con `range=1y` hay ~252 cierres: la SMA 200 se puede calcular, pero la racha de «Días en señal» no puede remontarse más allá de donde la SMA 200 y el RSI son calculables a la vez.
+- Si un símbolo devuelve menos de 200 cierres, se muestra con lo que haya (las SMA que no alcancen quedan en «—») sin inventar datos.
+
+> Herramienta informativa y educativa. No es asesoría financiera.
