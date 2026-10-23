@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scanner de ETFs — versión familiar</title>
+<style>
+  :root{--bg:#0a1628;--panel:#0f2140;--panel2:#12294d;--txt:#e8eef7;--mut:#9db2cc;--green:#22c55e;--red:#ef4444;--blue:#38bdf8;--purple:#a78bfa;--celeste:#67e8f9}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:16px 14px 6px;max-width:1100px;margin:0 auto}
+  h1{font-size:21px;margin:0 0 4px}
+  .sub{color:var(--mut);font-size:13px}
+  main{max-width:1100px;margin:0 auto;padding:10px 10px 30px}
+  .bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+  .bar button{background:var(--panel2);color:var(--txt);border:1px solid #24406e;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
+  .bar button.on{background:#1d4ed8;border-color:#1d4ed8}
+  .add{display:flex;gap:6px;margin:8px 0 14px}
+  .add input{flex:1;min-width:120px;background:var(--panel);border:1px solid #24406e;border-radius:8px;color:var(--txt);padding:8px 10px;font-size:14px;text-transform:uppercase}
+  .add button{background:#1d4ed8;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:12px;overflow:hidden;table-layout:fixed}
+  th,td{padding:8px 6px;font-size:13px;text-align:left;vertical-align:middle;word-wrap:break-word}
+  th{background:var(--panel2);color:var(--mut);font-weight:600;font-size:12px}
+  tr.row{border-top:1px solid #1b335c;cursor:pointer}
+  tr.row:hover{background:#132a4f}
+  .pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;color:#0b1526}
+  .etf{background:var(--purple)} .stock{background:var(--celeste)}
+  .fav{background:var(--green)} .nofav{background:var(--red);color:#fff} .inter{background:var(--blue)}
+  a.tick{color:#fff;font-weight:800;text-decoration:none}
+  a.tick:hover{text-decoration:underline}
+  .pos{color:var(--mut);font-size:12px}
+  .up{color:var(--green)} .down{color:var(--red)}
+  .lvl{background:#1b335c;border-radius:6px;height:8px;margin-top:4px;overflow:hidden}
+  .lvl>div{background:linear-gradient(90deg,#38bdf8,#22c55e);height:100%}
+  .del{color:#f87171;background:none;border:0;cursor:pointer;font-size:14px;padding:0 2px}
+  .detail td{background:#0b1c36}
+  .detail svg{width:100%;height:180px;display:block}
+  .legend{font-size:12px;color:var(--mut);margin-top:4px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 4px 0 10px}
+  section.info{background:var(--panel);border-radius:12px;padding:14px;margin-top:16px;font-size:14px;line-height:1.55}
+  section.info h2{font-size:16px;margin:0 0 8px}
+  footer{color:var(--mut);font-size:12px;text-align:center;padding:14px}
+  #err{color:#fca5a5;font-size:13px;min-height:16px}
+  @media (max-width:640px){
+    th,td{font-size:11px;padding:6px 3px}
+    th{font-size:10px}
+    .pos{font-size:10px}
+    .pill{font-size:9px;padding:2px 5px}
+    h1{font-size:18px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Scanner de ETFs</h1>
+  <div class="sub">Versión familiar · <span id="updated">Cargando…</span> · Se actualiza sola cada 15 minutos</div>
+</header>
+<main>
+  <div class="bar" id="filters">
+    <button data-f="all" class="on">Todos</button>
+    <button data-f="20">Sobre SMA 20</button>
+    <button data-f="50">Sobre SMA 50</button>
+    <button data-f="100">Sobre SMA 100</button>
+    <button data-f="200">Sobre SMA 200</button>
+  </div>
+  <div class="add">
+    <input id="newSym" placeholder="Agregar ticket (ej: VOO)" maxlength="12" autocomplete="off">
+    <button id="addBtn">Agregar</button>
+  </div>
+  <div id="err"></div>
+  <table>
+    <thead><tr>
+      <th style="width:13%">Ticket</th><th style="width:9%">Tipo</th><th style="width:8%">RSI 14</th>
+      <th style="width:22%">Posición</th><th style="width:13%">Señal</th><th style="width:8%">Días en señal</th>
+      <th style="width:10%">Precio</th><th style="width:8%">Cambio %</th><th style="width:9%">Nivel</th>
+    </tr></thead>
+    <tbody id="tbody"><tr><td colspan="9">Cargando datos…</td></tr></tbody>
+  </table>
+
+  <section class="info">
+    <h2>Cómo leer el scanner</h2>
+    <p><strong>Señal</strong> (solo estas tres etiquetas, con esta regla exacta):</p>
+    <ul>
+      <li><strong>Favorable</strong>: precio debajo de TODAS las SMA, o RSI ≤ 35.</li>
+      <li><strong>No Favorable</strong>: precio sobre 3 o más SMA, o RSI ≥ 65.</li>
+      <li><strong>Interesante</strong>: todo lo demás.</li>
+    </ul>
+    <p><strong>Nivel 0–100</strong>: Nivel = redondeo de [ 0,6 × (100 − RSI 14) + 0,4 × (25 × número de SMA (20/50/100/200) que están por encima del precio) ], limitado entre 0 y 100. Un Nivel más alto combina RSI bajo (menos extendido) con precio por debajo de más SMA.</p>
+    <p><strong>RSI 14</strong> se calcula con el método Wilder sobre los cierres diarios. <strong>Posición</strong> compara el precio con las SMA 20/50/100/200 y muestra la distancia en el detalle de cada fila. <strong>Días en señal</strong> cuenta los días de mercado seguidos con la misma señal actual, recalculando la señal día por día. Toca una fila para ver su gráfico de 6 meses con SMA 20/50 y su rango de 52 semanas. Toca el Ticket para abrir su gráfica avanzada en Yahoo Finance.</p>
+  </section>
+  <footer>Herramienta informativa y educativa. No es asesoría financiera.</footer>
+</main>
+<script>
+const DEFAULTS = ['SPYM','QQQM','SCHD','RSP','JEPQ','SPMO','VTI','SCHG','META','AAPL'];
+let symbols = JSON.parse(localStorage.getItem('scannerSymbols') || 'null') || DEFAULTS.slice();
+let data = [], filter = 'all', openSym = null;
+
+const $ = s => document.querySelector(s);
+function esc(s){return String(s==null?'—':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function fmt(n,d=2){return n==null?'—':Number(n).toFixed(d)}
+
+async function load(){
+  $('#err').textContent = '';
+  try{
+    const r = await fetch('/api/scanner?symbols=' + encodeURIComponent(symbols.join(',')));
+    const j = await r.json();
+    data = j.symbols || [];
+    const bad = data.filter(x=>x.error);
+    if (bad.length) $('#err').textContent = 'Sin datos para: ' + bad.map(x=>x.display).join(', ');
+    data = data.filter(x=>!x.error);
+    $('#updated').textContent = 'Actualizado: ' + new Date(j.updatedAt).toLocaleString('es-US');
+    render();
+  }catch(e){ $('#err').textContent = 'Error cargando datos: ' + e.message; }
+}
+
+function signalClass(s){return s==='Favorable'?'fav':(s==='No Favorable'?'nofav':'inter')}
+
+function chartSVG(d){
+  const s = d.series6m; if(!s || !s.closes.length) return '<div class="legend">Sin serie para graficar.</div>';
+  const W=700,H=180,P=8;
+  const all = s.closes.concat(s.sma20.filter(x=>x!=null), s.sma50.filter(x=>x!=null));
+  let min=Math.min(...all), max=Math.max(...all); const pad=(max-min)*0.06||1; min-=pad; max+=pad;
+  const X=i=>P+i*(W-2*P)/(s.closes.length-1), Y=v=>H-P-((v-min)/(max-min))*(H-2*P);
+  const line=(arr,color)=>{let p='';arr.forEach((v,i)=>{if(v!=null)p+=(p?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)+' '});return `<path d="${p}" fill="none" stroke="${color}" stroke-width="1.6"/>`};
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${line(s.closes,'#e8eef7')}${line(s.sma20,'#38bdf8')}${line(s.sma50,'#f59e0b')}</svg>
+  <div class="legend">Gráfico 6 meses: <span class="dot" style="background:#e8eef7"></span>Precio <span class="dot" style="background:#38bdf8"></span>SMA 20 <span class="dot" style="background:#f59e0b"></span>SMA 50 · Rango 52 semanas: $${fmt(d.week52.low)} – $${fmt(d.week52.high)} · Distancias a SMA — 20: ${fmt(d.distancesPct[20])}% · 50: ${fmt(d.distancesPct[50])}% · 100: ${fmt(d.distancesPct[100])}% · 200: ${fmt(d.distancesPct[200])}%</div>`;
+}
+
+function render(){
+  const tb = $('#tbody'); tb.innerHTML='';
+  const rows = data.filter(d => filter==='all' || (d.distancesPct && d.distancesPct[filter] != null && d.distancesPct[filter] > 0));
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="9">Sin resultados para este filtro.</td></tr>'; return; }
+  for(const d of rows){
+    const tr=document.createElement('tr'); tr.className='row';
+    tr.innerHTML = `<td><a class="tick" href="https://finance.yahoo.com/quote/${encodeURIComponent(d.symbol)}/chart/" target="_blank" rel="noopener">${esc(d.display)}</a> <button class="del" title="Quitar">×</button></td>
+      <td><span class="pill ${d.type==='ETF'?'etf':'stock'}">${esc(d.type)}</span></td>
+      <td>${fmt(d.rsi,1)}</td>
+      <td class="pos">${esc(d.position)}</td>
+      <td><span class="pill ${signalClass(d.signal)}">${esc(d.signal)}</span></td>
+      <td>${d.daysInSignal==null?'—':d.daysInSignal}</td>
+      <td>$${fmt(d.price)}</td>
+      <td class="${d.changePct>=0?'up':'down'}">${d.changePct==null?'—':(d.changePct>=0?'+':'')+fmt(d.changePct)+'%'}</td>
+      <td>${d.nivel==null?'—':d.nivel}<div class="lvl"><div style="width:${d.nivel||0}%"></div></div></td>`;
+    tr.querySelector('a').addEventListener('click', e=>e.stopPropagation());
+    tr.querySelector('.del').addEventListener('click', e=>{ e.stopPropagation(); symbols = symbols.filter(s=>s!==d.symbol); localStorage.setItem('scannerSymbols', JSON.stringify(symbols)); load(); });
+    tr.addEventListener('click', ()=>{ openSym = openSym===d.symbol?null:d.symbol; render(); });
+    tb.appendChild(tr);
+    if(openSym===d.symbol){
+      const det=document.createElement('tr'); det.className='detail';
+      det.innerHTML = `<td colspan="9"><strong>${esc(d.display)}</strong> — ${esc(d.name)} · Último cierre: ${esc(d.lastDate)} · ${d.closesCount} cierres${chartSVG(d)}</td>`;
+      tb.appendChild(det);
+    }
+  }
+}
+
+$('#filters').addEventListener('click', e=>{
+  if(e.target.tagName!=='BUTTON') return;
+  document.querySelectorAll('#filters button').forEach(b=>b.classList.remove('on'));
+  e.target.classList.add('on'); filter = e.target.dataset.f; render();
+});
+function addSym(){
+  let v = $('#newSym').value.trim().toUpperCase(); if(!v) return;
+  if(v==='APPLE') v='AAPL';
+  if(!symbols.includes(v)) symbols.push(v);
+  localStorage.setItem('scannerSymbols', JSON.stringify(symbols));
+  $('#newSym').value=''; load();
+}
+$('#addBtn').addEventListener('click', addSym);
+$('#newSym').addEventListener('keydown', e=>{ if(e.key==='Enter') addSym(); });
+
+load();
+setInterval(load, 15*60*1000);
+</script>
+</body>
+</html>
