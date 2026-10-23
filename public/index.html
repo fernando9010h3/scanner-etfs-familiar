@@ -11,6 +11,9 @@
   header{padding:16px 14px 6px;max-width:1100px;margin:0 auto}
   h1{font-size:21px;margin:0 0 4px}
   .sub{color:var(--mut);font-size:13px}
+  .lang{display:flex;gap:6px;margin-top:8px}
+  .lang button{background:var(--panel2);color:var(--txt);border:1px solid #24406e;border-radius:999px;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer}
+  .lang button.on{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
   main{max-width:1100px;margin:0 auto;padding:10px 10px 30px}
   .bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
   .bar button{background:var(--panel2);color:var(--txt);border:1px solid #24406e;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
@@ -53,52 +56,125 @@
 <body>
 <header>
   <h1>📊 Scanner de ETFs</h1>
-  <div class="sub">Versión familiar · <span id="updated">Cargando…</span> · Se actualiza sola cada 15 minutos</div>
+  <div class="sub"><span data-i18n="subFamily">Versión familiar</span> · <span id="updated">Cargando…</span> · <span data-i18n="auto">Se actualiza sola cada 15 minutos</span></div>
+  <div class="lang">
+    <button id="langEs" type="button">🇪🇸 Español</button>
+    <button id="langEn" type="button">🇺🇸 English</button>
+  </div>
 </header>
 <main>
   <div class="bar" id="filters">
-    <button data-f="all" class="on">Todos</button>
-    <button data-f="20">Sobre SMA 20</button>
-    <button data-f="50">Sobre SMA 50</button>
-    <button data-f="100">Sobre SMA 100</button>
-    <button data-f="200">Sobre SMA 200</button>
+    <button data-f="all" class="on" data-i18n="fAll">Todos</button>
+    <button data-f="20" data-i18n="f20">Sobre SMA 20</button>
+    <button data-f="50" data-i18n="f50">Sobre SMA 50</button>
+    <button data-f="100" data-i18n="f100">Sobre SMA 100</button>
+    <button data-f="200" data-i18n="f200">Sobre SMA 200</button>
   </div>
   <div class="add">
     <input id="newSym" placeholder="Agregar ticket (ej: VOO)" maxlength="12" autocomplete="off">
-    <button id="addBtn">Agregar</button>
+    <button id="addBtn" data-i18n="add">Agregar</button>
   </div>
   <div id="err"></div>
   <table>
     <thead><tr>
-      <th style="width:13%">Ticket</th><th style="width:9%">Tipo</th><th style="width:8%">RSI 14</th>
-      <th style="width:22%">Posición</th><th style="width:13%">Señal</th><th style="width:8%">Días en señal</th>
-      <th style="width:10%">Precio</th><th style="width:8%">Cambio %</th><th style="width:9%">Nivel</th>
+      <th style="width:13%" data-i18n="thTicket">Ticket</th><th style="width:9%" data-i18n="thType">Tipo</th><th style="width:8%">RSI 14</th>
+      <th style="width:22%" data-i18n="thPos">Posición</th><th style="width:13%" data-i18n="thSignal">Señal</th><th style="width:8%" data-i18n="thDays">Días en señal</th>
+      <th style="width:10%" data-i18n="thPrice">Precio</th><th style="width:8%" data-i18n="thChange">Cambio %</th><th style="width:9%" data-i18n="thLevel">Nivel</th>
     </tr></thead>
-    <tbody id="tbody"><tr><td colspan="9">Cargando datos…</td></tr></tbody>
+    <tbody id="tbody"><tr><td colspan="9" id="loadingCell">Cargando datos…</td></tr></tbody>
   </table>
 
   <section class="info">
-    <h2>Cómo leer el scanner</h2>
-    <p><strong>Señal</strong> (solo estas tres etiquetas, con esta regla exacta):</p>
+    <h2 data-i18n="howTitle">Cómo leer el scanner</h2>
+    <p><strong data-i18n="howSignalWord">Señal</strong> <span data-i18n="howSignalIntro">(solo estas tres etiquetas, con esta regla exacta):</span></p>
     <ul>
-      <li><strong>Favorable</strong>: precio debajo de TODAS las SMA, o RSI ≤ 35.</li>
-      <li><strong>No Favorable</strong>: precio sobre 3 o más SMA, o RSI ≥ 65.</li>
-      <li><strong>Interesante</strong>: todo lo demás.</li>
+      <li><strong data-i18n="sigFav">Favorable</strong><span data-i18n="howFav">: precio debajo de TODAS las SMA, o RSI ≤ 35.</span></li>
+      <li><strong data-i18n="sigNo">No Favorable</strong><span data-i18n="howNo">: precio sobre 3 o más SMA, o RSI ≥ 65.</span></li>
+      <li><strong data-i18n="sigInt">Interesante</strong><span data-i18n="howInt">: todo lo demás.</span></li>
     </ul>
-    <p><strong>Nivel 0–100</strong>: Nivel = redondeo de [ 0,6 × (100 − RSI 14) + 0,4 × (25 × número de SMA (20/50/100/200) que están por encima del precio) ], limitado entre 0 y 100. Un Nivel más alto combina RSI bajo (menos extendido) con precio por debajo de más SMA.</p>
-    <p><strong>RSI 14</strong> se calcula con el método Wilder sobre los cierres diarios. <strong>Posición</strong> compara el precio con las SMA 20/50/100/200 y muestra la distancia en el detalle de cada fila. <strong>Días en señal</strong> cuenta los días de mercado seguidos con la misma señal actual, recalculando la señal día por día. Toca una fila para ver su gráfico de 6 meses con SMA 20/50 y su rango de 52 semanas. Toca el Ticket para abrir su gráfica avanzada en Yahoo Finance.</p>
+    <p><strong data-i18n="howLevelWord">Nivel 0–100</strong><span data-i18n="howLevel">: Nivel = redondeo de [ 0,6 × (100 − RSI 14) + 0,4 × (25 × número de SMA (20/50/100/200) que están por encima del precio) ], limitado entre 0 y 100. Un Nivel más alto combina RSI bajo (menos extendido) con precio por debajo de más SMA.</span></p>
+    <p data-i18n="howRest">RSI 14 se calcula con el método Wilder sobre los cierres diarios. Posición compara el precio con las SMA 20/50/100/200 y muestra la distancia en el detalle de cada fila. Días en señal cuenta los días de mercado seguidos con la misma señal actual, recalculando la señal día por día. Toca una fila para ver su gráfico de 6 meses con SMA 20/50 y su rango de 52 semanas. Toca el Ticket para abrir su gráfica avanzada en Yahoo Finance.</p>
   </section>
-  <footer>Herramienta informativa y educativa. No es asesoría financiera.</footer>
+  <footer data-i18n="footer">Herramienta informativa y educativa. No es asesoría financiera.</footer>
 </main>
 <script>
 const DEFAULTS = ['SPYM','QQQM','SCHD','RSP','JEPQ','SPMO','VTI','SCHG','META','AAPL'];
 let symbols = JSON.parse(localStorage.getItem('scannerSymbols') || 'null') || DEFAULTS.slice();
 let data = [], filter = 'all', openSym = null;
+let lang = localStorage.getItem('scannerLang') || 'es';
+
+const I18N = {
+  es: {
+    subFamily:'Versión familiar', auto:'Se actualiza sola cada 15 minutos', loading:'Cargando…',
+    fAll:'Todos', f20:'Sobre SMA 20', f50:'Sobre SMA 50', f100:'Sobre SMA 100', f200:'Sobre SMA 200',
+    add:'Agregar', phAdd:'Agregar ticket (ej: VOO)',
+    thTicket:'Ticket', thType:'Tipo', thPos:'Posición', thSignal:'Señal', thDays:'Días en señal', thPrice:'Precio', thChange:'Cambio %', thLevel:'Nivel',
+    loadingData:'Cargando datos…', noResults:'Sin resultados para este filtro.',
+    noDataFor:'Sin datos para: ', loadError:'Error cargando datos: ', updated:'Actualizado: ',
+    aboveAll:'Sobre todas las SMA', belowAll:'Debajo de todas las SMA', above:'Sobre', below:'Debajo',
+    sigFav:'Favorable', sigNo:'No Favorable', sigInt:'Interesante',
+    lastClose:'Último cierre', closes:'cierres',
+    chartTitle:'Gráfico 6 meses:', priceW:'Precio', range52:'Rango 52 semanas:', distSma:'Distancias a SMA',
+    noSeries:'Sin serie para graficar.', remove:'Quitar',
+    howTitle:'Cómo leer el scanner', howSignalWord:'Señal',
+    howSignalIntro:'(solo estas tres etiquetas, con esta regla exacta):',
+    howFav:': precio debajo de TODAS las SMA, o RSI ≤ 35.',
+    howNo:': precio sobre 3 o más SMA, o RSI ≥ 65.',
+    howInt:': todo lo demás.',
+    howLevelWord:'Nivel 0–100',
+    howLevel:': Nivel = redondeo de [ 0,6 × (100 − RSI 14) + 0,4 × (25 × número de SMA (20/50/100/200) que están por encima del precio) ], limitado entre 0 y 100. Un Nivel más alto combina RSI bajo (menos extendido) con precio por debajo de más SMA.',
+    howRest:'RSI 14 se calcula con el método Wilder sobre los cierres diarios. Posición compara el precio con las SMA 20/50/100/200 y muestra la distancia en el detalle de cada fila. Días en señal cuenta los días de mercado seguidos con la misma señal actual, recalculando la señal día por día. Toca una fila para ver su gráfico de 6 meses con SMA 20/50 y su rango de 52 semanas. Toca el Ticket para abrir su gráfica avanzada en Yahoo Finance.',
+    footer:'Herramienta informativa y educativa. No es asesoría financiera.'
+  },
+  en: {
+    subFamily:'Family version', auto:'Updates automatically every 15 minutes', loading:'Loading…',
+    fAll:'All', f20:'Above SMA 20', f50:'Above SMA 50', f100:'Above SMA 100', f200:'Above SMA 200',
+    add:'Add', phAdd:'Add a ticker (e.g. VOO)',
+    thTicket:'Ticker', thType:'Type', thPos:'Position', thSignal:'Signal', thDays:'Days in signal', thPrice:'Price', thChange:'Change %', thLevel:'Level',
+    loadingData:'Loading data…', noResults:'No results for this filter.',
+    noDataFor:'No data for: ', loadError:'Error loading data: ', updated:'Updated: ',
+    aboveAll:'Above all SMAs', belowAll:'Below all SMAs', above:'Above', below:'Below',
+    sigFav:'Favorable', sigNo:'Not Favorable', sigInt:'Interesting',
+    lastClose:'Last close', closes:'closes',
+    chartTitle:'6-month chart:', priceW:'Price', range52:'52-week range:', distSma:'Distance to SMAs',
+    noSeries:'No series to chart.', remove:'Remove',
+    howTitle:'How to read this scanner', howSignalWord:'Signal',
+    howSignalIntro:'(only these three labels, with this exact rule):',
+    howFav:': price below ALL SMAs, or RSI ≤ 35.',
+    howNo:': price above 3 or more SMAs, or RSI ≥ 65.',
+    howInt:': everything else.',
+    howLevelWord:'Level 0–100',
+    howLevel:': Level = rounded [ 0.6 × (100 − RSI 14) + 0.4 × (25 × number of SMAs (20/50/100/200) above the price) ], clamped between 0 and 100. A higher Level combines a low RSI (less extended) with price below more SMAs.',
+    howRest:'RSI 14 is calculated with the Wilder method on daily closes. Position compares the price with the SMA 20/50/100/200 and shows the distance in each row\'s detail. Days in signal counts consecutive market days with the current signal, recalculating the signal day by day. Tap a row to see its 6-month chart with SMA 20/50 and its 52-week range. Tap the Ticker to open its advanced chart on Yahoo Finance.',
+    footer:'Informational and educational tool. Not financial advice.'
+  }
+};
+const t = k => (I18N[lang] && I18N[lang][k]) || I18N.es[k] || k;
+function sigText(s){ return s==='Favorable' ? t('sigFav') : (s==='No Favorable' ? t('sigNo') : t('sigInt')); }
+function posText(d){
+  if(!d.distancesPct) return esc(d.position);
+  const order=[200,100,50,20], ab=[], be=[];
+  for(const p of order){ const v=d.distancesPct[p]; if(v==null) continue; (v>0?ab:be).push('SMA '+p); }
+  if(ab.length && !be.length) return t('aboveAll');
+  if(be.length && !ab.length) return t('belowAll');
+  const parts=[]; if(ab.length) parts.push(t('above')+' '+ab.join(', ')); if(be.length) parts.push(t('below')+' '+be.join(', '));
+  return parts.join(' | ');
+}
+function applyLang(){
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  $('#newSym').placeholder = t('phAdd');
+  $('#langEs').classList.toggle('on', lang==='es');
+  $('#langEn').classList.toggle('on', lang==='en');
+  render();
+}
+function setLang(l){ lang = l; localStorage.setItem('scannerLang', l); applyLang(); if(lastUpdated) $('#updated').textContent = t('updated') + new Date(lastUpdated).toLocaleString(lang==='en'?'en-US':'es-US'); }
 
 const $ = s => document.querySelector(s);
 function esc(s){return String(s==null?'—':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function fmt(n,d=2){return n==null?'—':Number(n).toFixed(d)}
 
+let lastUpdated = null;
 async function load(){
   $('#err').textContent = '';
   try{
@@ -106,37 +182,38 @@ async function load(){
     const j = await r.json();
     data = j.symbols || [];
     const bad = data.filter(x=>x.error);
-    if (bad.length) $('#err').textContent = 'Sin datos para: ' + bad.map(x=>x.display).join(', ');
+    if (bad.length) $('#err').textContent = t('noDataFor') + bad.map(x=>x.display).join(', ');
     data = data.filter(x=>!x.error);
-    $('#updated').textContent = 'Actualizado: ' + new Date(j.updatedAt).toLocaleString('es-US');
+    lastUpdated = j.updatedAt;
+    $('#updated').textContent = t('updated') + new Date(j.updatedAt).toLocaleString(lang==='en'?'en-US':'es-US');
     render();
-  }catch(e){ $('#err').textContent = 'Error cargando datos: ' + e.message; }
+  }catch(e){ $('#err').textContent = t('loadError') + e.message; }
 }
 
 function signalClass(s){return s==='Favorable'?'fav':(s==='No Favorable'?'nofav':'inter')}
 
 function chartSVG(d){
-  const s = d.series6m; if(!s || !s.closes.length) return '<div class="legend">Sin serie para graficar.</div>';
+  const s = d.series6m; if(!s || !s.closes.length) return '<div class="legend">' + t('noSeries') + '</div>';
   const W=700,H=180,P=8;
   const all = s.closes.concat(s.sma20.filter(x=>x!=null), s.sma50.filter(x=>x!=null));
   let min=Math.min(...all), max=Math.max(...all); const pad=(max-min)*0.06||1; min-=pad; max+=pad;
   const X=i=>P+i*(W-2*P)/(s.closes.length-1), Y=v=>H-P-((v-min)/(max-min))*(H-2*P);
   const line=(arr,color)=>{let p='';arr.forEach((v,i)=>{if(v!=null)p+=(p?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)+' '});return `<path d="${p}" fill="none" stroke="${color}" stroke-width="1.6"/>`};
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${line(s.closes,'#e8eef7')}${line(s.sma20,'#38bdf8')}${line(s.sma50,'#f59e0b')}</svg>
-  <div class="legend">Gráfico 6 meses: <span class="dot" style="background:#e8eef7"></span>Precio <span class="dot" style="background:#38bdf8"></span>SMA 20 <span class="dot" style="background:#f59e0b"></span>SMA 50 · Rango 52 semanas: $${fmt(d.week52.low)} – $${fmt(d.week52.high)} · Distancias a SMA — 20: ${fmt(d.distancesPct[20])}% · 50: ${fmt(d.distancesPct[50])}% · 100: ${fmt(d.distancesPct[100])}% · 200: ${fmt(d.distancesPct[200])}%</div>`;
+  <div class="legend">${t('chartTitle')} <span class="dot" style="background:#e8eef7"></span>${t('priceW')} <span class="dot" style="background:#38bdf8"></span>SMA 20 <span class="dot" style="background:#f59e0b"></span>SMA 50 · ${t('range52')} $${fmt(d.week52.low)} – $${fmt(d.week52.high)} · ${t('distSma')} — 20: ${fmt(d.distancesPct[20])}% · 50: ${fmt(d.distancesPct[50])}% · 100: ${fmt(d.distancesPct[100])}% · 200: ${fmt(d.distancesPct[200])}%</div>`;
 }
 
 function render(){
-  const tb = $('#tbody'); tb.innerHTML='';
+  const tb = $('#tbody'); if(!tb) return; tb.innerHTML='';
   const rows = data.filter(d => filter==='all' || (d.distancesPct && d.distancesPct[filter] != null && d.distancesPct[filter] > 0));
-  if(!rows.length){ tb.innerHTML='<tr><td colspan="9">Sin resultados para este filtro.</td></tr>'; return; }
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="9">' + (data.length ? t('noResults') : t('loadingData')) + '</td></tr>'; return; }
   for(const d of rows){
     const tr=document.createElement('tr'); tr.className='row';
-    tr.innerHTML = `<td><a class="tick" href="https://finance.yahoo.com/quote/${encodeURIComponent(d.symbol)}/chart/" target="_blank" rel="noopener">${esc(d.display)}</a> <button class="del" title="Quitar">×</button></td>
+    tr.innerHTML = `<td><a class="tick" href="https://finance.yahoo.com/quote/${encodeURIComponent(d.symbol)}/chart/" target="_blank" rel="noopener">${esc(d.display)}</a> <button class="del" title="${t('remove')}">×</button></td>
       <td><span class="pill ${d.type==='ETF'?'etf':'stock'}">${esc(d.type)}</span></td>
       <td>${fmt(d.rsi,1)}</td>
-      <td class="pos">${esc(d.position)}</td>
-      <td><span class="pill ${signalClass(d.signal)}">${esc(d.signal)}</span></td>
+      <td class="pos">${esc(posText(d))}</td>
+      <td><span class="pill ${signalClass(d.signal)}">${esc(sigText(d.signal))}</span></td>
       <td>${d.daysInSignal==null?'—':d.daysInSignal}</td>
       <td>$${fmt(d.price)}</td>
       <td class="${d.changePct>=0?'up':'down'}">${d.changePct==null?'—':(d.changePct>=0?'+':'')+fmt(d.changePct)+'%'}</td>
@@ -147,7 +224,7 @@ function render(){
     tb.appendChild(tr);
     if(openSym===d.symbol){
       const det=document.createElement('tr'); det.className='detail';
-      det.innerHTML = `<td colspan="9"><strong>${esc(d.display)}</strong> — ${esc(d.name)} · Último cierre: ${esc(d.lastDate)} · ${d.closesCount} cierres${chartSVG(d)}</td>`;
+      det.innerHTML = `<td colspan="9"><strong>${esc(d.display)}</strong> — ${esc(d.name)} · ${t('lastClose')}: ${esc(d.lastDate)} · ${d.closesCount} ${t('closes')}${chartSVG(d)}</td>`;
       tb.appendChild(det);
     }
   }
@@ -167,7 +244,10 @@ function addSym(){
 }
 $('#addBtn').addEventListener('click', addSym);
 $('#newSym').addEventListener('keydown', e=>{ if(e.key==='Enter') addSym(); });
+$('#langEs').addEventListener('click', ()=>setLang('es'));
+$('#langEn').addEventListener('click', ()=>setLang('en'));
 
+applyLang();
 load();
 setInterval(load, 15*60*1000);
 </script>
