@@ -83,14 +83,15 @@ function smaSeries(closes, period) {
   return out;
 }
 
-// Señal con la regla EXACTA de Fernando. smas = {20,50,100,200} (pueden ser null).
-function signalFor(price, smas, rsi) {
+// Señal con la regla EXACTA de Fernando: SOLO medias móviles, sin RSI.
+// smas = {20,50,100,200} (pueden ser null).
+function signalFor(price, smas) {
   const vals = SMA_PERIODS.map(p => smas[p]).filter(v => v != null);
-  if (!vals.length || rsi == null) return null;
+  if (!vals.length) return null;
   const above = vals.filter(v => price > v).length;
   const belowAll = vals.every(v => price < v);
-  if (belowAll || rsi <= 35) return 'Favorable';
-  if (above >= 3 || rsi >= 65) return 'No Favorable';
+  if (belowAll) return 'Favorable';
+  if (above >= 3) return 'No Favorable';
   return 'Interesante';
 }
 
@@ -142,7 +143,7 @@ function buildSymbolData(symbol, chart) {
   const smasNow = {};
   for (const p of SMA_PERIODS) smasNow[p] = last >= 0 ? smaSeriesMap[p][last] : null;
   const rsi = last >= 0 ? rsiS[last] : null;
-  const signal = signalFor(price, smasNow, rsi);
+  const signal = signalFor(price, smasNow);
 
   // Días en señal: racha terminando hoy, recalculando día por día.
   let daysInSignal = null;
@@ -151,7 +152,7 @@ function buildSymbolData(symbol, chart) {
     for (let i = last; i >= 0; i--) {
       const s = {};
       for (const p of SMA_PERIODS) s[p] = smaSeriesMap[p][i];
-      const sig = signalFor(closes[i], s, rsiS[i]);
+      const sig = signalFor(closes[i], s);
       if (sig === null || sig !== signal) break;
       daysInSignal++;
     }
