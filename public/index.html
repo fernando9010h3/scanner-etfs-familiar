@@ -23,6 +23,9 @@
   #refreshBtn{background:#131820;border:1px solid #262d38;color:var(--txt);border-radius:999px;padding:2px 12px;font-size:12px;cursor:pointer}
   #refreshBtn:active{background:#1d4ed8}
   #refreshBtn:disabled{opacity:.55;cursor:default}
+  #heatBtn,#imgBtn{background:#131820;border:1px solid #262d38;color:var(--txt);border-radius:999px;padding:2px 12px;font-size:12px;cursor:pointer;text-decoration:none;display:inline-block}
+  #heatBtn:active,#imgBtn:active{background:#1d4ed8}
+  #imgBtn:disabled{opacity:.55;cursor:default}
   .add{display:flex;gap:6px;margin:8px 0 14px}
   .addwrap{position:relative;flex:1;display:flex}
   .add input{flex:1;min-width:120px;background:var(--panel);border:1px solid #262d38;border-radius:8px;color:var(--txt);padding:8px 10px;font-size:14px}
@@ -78,7 +81,7 @@
 <body>
 <header>
   <h1>📊 Scanner de ETFs</h1>
-  <div class="sub"><span data-i18n="subFamily">Versión familiar</span> · <span id="updated">Cargando…</span> · <span data-i18n="auto">Se actualiza sola cada 15 minutos</span> · <button id="refreshBtn" type="button" data-i18n="refresh">↻ Actualizar</button></div>
+  <div class="sub"><span data-i18n="subFamily">Versión familiar</span> · <span id="updated">Cargando…</span> · <span data-i18n="auto">Se actualiza sola cada 15 minutos</span> · <button id="refreshBtn" type="button" data-i18n="refresh">↻ Actualizar</button> · <a id="heatBtn" href="https://finviz.com/map.ashx" target="_blank" rel="noopener" data-i18n="heatmap">🗺️ Mapa de calor</a> · <button id="imgBtn" type="button" data-i18n="exportImg">📸 Imagen</button></div>
   <div class="lang">
     <button id="langEs" type="button">🇪🇸 Español</button>
     <button id="langEn" type="button">🇺🇸 English</button>
@@ -135,6 +138,7 @@ const I18N = {
     subFamily:'Versión familiar', auto:'Se actualiza sola cada 15 minutos', loading:'Cargando…',
     fAll:'Todos', f20:'Sobre SMA 20', f50:'Sobre SMA 50', f100:'Sobre SMA 100', f200:'Sobre SMA 200',
     add:'Agregar', phAdd:'Busca por nombre o ticket (ej: Tesla, VOO)', refresh:'↻ Actualizar',
+    heatmap:'🗺️ Mapa de calor', exportImg:'📸 Imagen', needSymbols:'Primero agrega símbolos a tu lista.',
     notFound:'No se encontró: ', notFoundHint:' — escribe el nombre de la empresa y elige de la lista que aparece.',
     emptyList:'Tu lista está vacía. Busca arriba tu primer ETF o empresa (por nombre, ej: Tesla — o por ticket, ej: VOO) y agrégalo. Esta lista es solo tuya: se guarda en este teléfono/navegador y nadie más la ve ni la cambia.',
     thTicket:'Ticket', thType:'Tipo', thPos:'Posición', thSignal:'Señal', thDays:'Días en señal', thPrice:'Precio', thChange:'Cambio %', thLevel:'Nivel',
@@ -159,6 +163,7 @@ const I18N = {
     subFamily:'Family version', auto:'Updates automatically every 15 minutes', loading:'Loading…',
     fAll:'All', f20:'Above SMA 20', f50:'Above SMA 50', f100:'Above SMA 100', f200:'Above SMA 200',
     add:'Add', phAdd:'Search by name or ticker (e.g. Tesla, VOO)', refresh:'↻ Refresh',
+    heatmap:'🗺️ Heatmap', exportImg:'📸 Image', needSymbols:'Add symbols to your list first.',
     notFound:'Not found: ', notFoundHint:' — type the company name and pick from the list that appears.',
     emptyList:'Your list is empty. Search above for your first ETF or company (by name, e.g. Tesla — or by ticker, e.g. VOO) and add it. This list is yours alone: it is saved on this phone/browser and nobody else sees it or changes it.',
     thTicket:'Ticker', thType:'Type', thPos:'Position', thSignal:'Signal', thDays:'Days in signal', thPrice:'Price', thChange:'Change %', thLevel:'Level',
@@ -345,6 +350,68 @@ $('#refreshBtn').addEventListener('click', async ()=>{
   b.disabled = true; b.textContent = t('loading');
   try{ await load(true); } finally { b.disabled = false; b.textContent = t('refresh'); }
 });
+function roundRectPath(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function pillCanvas(ctx,x,y,text,colors){
+  ctx.font='700 19px system-ui, sans-serif';
+  const w = ctx.measureText(text).width + 30;
+  const g = ctx.createLinearGradient(x,y,x,y+34);
+  g.addColorStop(0, colors[0]); g.addColorStop(1, colors[1]);
+  roundRectPath(ctx,x,y,w,34,17); ctx.fillStyle=g; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.38)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.textBaseline='middle'; ctx.fillText(text, x+15, y+18); ctx.textBaseline='alphabetic';
+}
+function exportImage(){
+  if(!data.length){ $('#err').textContent = t('needSymbols'); return; }
+  const S=2, W=1080, pad=40, rowH=66, headH=132, footH=58;
+  const H = headH + data.length*rowH + footH;
+  const cv = document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
+  const ctx = cv.getContext('2d'); ctx.scale(S,S);
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#e8eef7'; ctx.font='800 40px system-ui, sans-serif';
+  ctx.fillText('📊 Scanner de ETFs', pad, 58);
+  ctx.fillStyle='#9db2cc'; ctx.font='400 22px system-ui, sans-serif';
+  ctx.fillText(lastUpdated ? t('updated') + new Date(lastUpdated).toLocaleString(lang==='en'?'en-US':'es-US') : '', pad, 94);
+  const cols = { ticket:pad, type:296, rsi:452, signal:548, price:796, change:928 };
+  ctx.font='600 20px system-ui, sans-serif'; ctx.fillStyle='#9db2cc';
+  ctx.fillText(t('thTicket').toUpperCase(), cols.ticket, headH-14);
+  ctx.fillText(t('thType').toUpperCase(), cols.type, headH-14);
+  ctx.fillText('RSI 14', cols.rsi, headH-14);
+  ctx.fillText(t('thSignal').toUpperCase(), cols.signal, headH-14);
+  ctx.fillText(t('thPrice').toUpperCase(), cols.price, headH-14);
+  ctx.fillText('%', cols.change, headH-14);
+  const sigColors = { 'Favorable':['rgba(34,197,94,.75)','rgba(21,128,61,.50)'], 'No Favorable':['rgba(244,63,94,.78)','rgba(190,18,60,.52)'], 'Interesante':['rgba(245,158,11,.80)','rgba(180,83,9,.55)'] };
+  data.forEach((d,i)=>{
+    const y = headH + i*rowH, cy = y + rowH/2;
+    ctx.fillStyle = i%2 ? '#05070a' : '#0b0e13'; ctx.fillRect(0, y, W, rowH);
+    roundRectPath(ctx, cols.ticket, cy-17, 34, 34, 9); ctx.fillStyle='#1d4ed8'; ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='800 17px system-ui, sans-serif'; ctx.textAlign='center';
+    ctx.fillText((d.display||'?').charAt(0), cols.ticket+17, cy+6); ctx.textAlign='left';
+    ctx.fillStyle='#fff'; ctx.font='800 27px system-ui, sans-serif'; ctx.textBaseline='middle';
+    ctx.fillText(d.display, cols.ticket+46, cy+1); ctx.textBaseline='alphabetic';
+    pillCanvas(ctx, cols.type, cy-17, d.type, d.type==='ETF' ? ['rgba(168,85,247,.72)','rgba(126,34,206,.50)'] : ['rgba(56,189,248,.72)','rgba(2,132,199,.50)']);
+    ctx.fillStyle='#e8eef7'; ctx.font='400 25px system-ui, sans-serif';
+    ctx.fillText(fmt(d.rsi,1), cols.rsi, cy+9);
+    pillCanvas(ctx, cols.signal, cy-17, sigText(d.signal), sigColors[d.signal] || sigColors['Interesante']);
+    ctx.fillStyle='#e8eef7'; ctx.font='700 25px system-ui, sans-serif';
+    ctx.fillText('$'+fmt(d.price), cols.price, cy+9);
+    ctx.fillStyle = d.changePct==null ? '#9db2cc' : (d.changePct>=0 ? '#22c55e' : '#ef4444'); ctx.font='700 23px system-ui, sans-serif';
+    ctx.fillText(d.changePct==null?'—':((d.changePct>=0?'+':'')+fmt(d.changePct)+'%'), cols.change, cy+9);
+  });
+  ctx.fillStyle='#9db2cc'; ctx.font='400 20px system-ui, sans-serif';
+  ctx.fillText('scanner-etfs-familiar.onrender.com · ' + t('footer'), pad, H-20);
+  cv.toBlob(async (blob)=>{
+    if(!blob) return;
+    const file = new File([blob], 'scanner-etfs.png', {type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:'Scanner de ETFs'}); return; }
+      catch(e){ if(e && e.name==='AbortError') return; }
+    }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='scanner-etfs.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  }, 'image/png');
+}
+$('#imgBtn').addEventListener('click', exportImage);
 $('#langEs').addEventListener('click', ()=>setLang('es'));
 $('#langEn').addEventListener('click', ()=>setLang('en'));
 
