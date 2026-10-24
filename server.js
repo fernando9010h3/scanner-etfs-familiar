@@ -284,6 +284,62 @@ async function fetchFundamentals(symbol, kind) {
   return data;
 }
 
+// ---------- datos ETF.com en vivo (API pública SIN sesión) + holdings StockAnalysis ----------
+// La API pública de ETF.com (api-prod.etf.com/v2) sirve rendimientos SIN login:
+// /v2/fund/tickers -> fundId por ticker; /v2/fund/performance/<fundId> -> retornos.
+// Los holdings se leen de la página pública de StockAnalysis. Caché 6 h como fundamentales.
+// La calificación Fit es propietaria de ETF.com y NO tiene endpoint público: queda como
+// foto fechada en el cliente (ETF_COM) cuando existe.
+const ETFCOM_CACHE_MS = 6 * 60 * 60 * 1000;
+const etfcomCache = new Map();
+let tickersCache = null;
+async function fetchFundIdMap() {
+  if (tickersCache && Date.now() - tickersCache.at < 24 * 60 * 60 * 1000) return tickersCache.map;
+  const r = await fetch('https://api-prod.etf.com/v2/fund/tickers', { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  const map = {};
+  for (const t of j) if (t && t.ticker && t.fundId) map[String(t.ticker).toUpperCase()] = t.fundId;
+  tickersCache = { at: Date.now(), map };
+  return map;
+}
+async function fetchEtfcom(symbol) {
+  const hit = etfcomCache.get(symbol);
+  if (hit && Date.now() - hit.at < ETFCOM_CACHE_MS) return hit.data;
+  const data = {};
+  try {
+    const map = await fetchFundIdMap();
+    const id = map[symbol];
+    if (id) {
+      const r = await fetch(`https://api-prod.etf.com/v2/fund/performance/${id}`, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
+      if (r.ok) {
+        const j = await r.json();
+        const p = j.priceData || {};
+        data.asOf = j.asOfDate ? String(j.asOfDate).split(',')[0] : null;
+        data.r1m = round2(p.return1M); data.r3m = round2(p.return3M);
+        data.rYtd = round2(p.returnYTD); data.r1y = round2(p.return1Y);
+        data.r3y = round2(p.return3Y); data.r5y = round2(p.return5Y);
+      }
+    }
+  } catch (_) { /* rendimientos opcionales */ }
+  try {
+    const r = await fetch(`https://stockanalysis.com/etf/${symbol.toLowerCase()}/holdings/`, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'text/html' } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const clean = (await r.text()).replace(/<!--[\s\S]*?-->/g, '');
+    const top = [];
+    const re = /<td class="sym[^"]*"><a[^>]*>([A-Z0-9.]+)<\/a><\/td>\s*<td[^>]*>[^<]*<\/td>\s*<td[^>]*>([0-9]+\.[0-9]+)%<\/td>/g;
+    let m;
+    while ((m = re.exec(clean)) && top.length < 10) top.push([m[1], parseFloat(m[2])]);
+    if (top.length) data.top = top;
+    const t10 = clean.match(/Top 10 Percentage\s*<div[^>]*>([0-9.]+)%<\/div>/);
+    if (t10) data.top10 = parseFloat(t10[1]);
+    const th = clean.match(/Total Holdings\s*<div[^>]*>([0-9,]+)<\/div>/);
+    if (th) data.count = parseInt(th[1].replace(/,/g, ''), 10);
+  } catch (_) { /* holdings opcionales */ }
+  etfcomCache.set(symbol, { at: Date.now(), data });
+  return data;
+}
+
 async function getSymbol(symbol, force) {
   if (!force) {
     const hit = cache.get(symbol);
@@ -334,6 +390,14 @@ const server = http.createServer(async (req, res) => {
       const fundamentals = await fetchFundamentals(sym, kind);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({ symbol: sym, fundamentals }));
+      return;
+    }
+    if (u.pathname === '/api/etfcom') {
+      const sym = normalizeSymbol(u.searchParams.get('symbol'));
+      if (!sym) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ error: 'symbol required' })); return; }
+      const etfcom = await fetchEtfcom(sym);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ symbol: sym, etfcom }));
       return;
     }
     if (u.pathname === '/api/scanner') {
