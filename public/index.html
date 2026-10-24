@@ -19,8 +19,16 @@
   .bar button{background:var(--panel2);color:var(--txt);border:1px solid #24406e;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
   .bar button.on{background:#1d4ed8;border-color:#1d4ed8}
   .add{display:flex;gap:6px;margin:8px 0 14px}
-  .add input{flex:1;min-width:120px;background:var(--panel);border:1px solid #24406e;border-radius:8px;color:var(--txt);padding:8px 10px;font-size:14px;text-transform:uppercase}
+  .addwrap{position:relative;flex:1;display:flex}
+  .add input{flex:1;min-width:120px;background:var(--panel);border:1px solid #24406e;border-radius:8px;color:var(--txt);padding:8px 10px;font-size:14px}
   .add button{background:#1d4ed8;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+  #suggest{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--panel2);border:1px solid #24406e;border-radius:10px;overflow:hidden;z-index:30;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  #suggest button{display:flex;width:100%;gap:8px;align-items:baseline;background:none;border:0;border-bottom:1px solid #1b335c;color:var(--txt);padding:10px 12px;font-size:14px;text-align:left;cursor:pointer}
+  #suggest button:last-child{border-bottom:0}
+  #suggest button:hover,#suggest button:active{background:#1d4ed8}
+  #suggest .sym{font-weight:800;min-width:64px}
+  #suggest .nm{color:var(--mut);font-size:12px;flex:1}
+  #suggest button:hover .nm,#suggest button:active .nm{color:#dbeafe}
   table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:12px;overflow:hidden;table-layout:fixed}
   th,td{padding:8px 6px;font-size:13px;text-align:left;vertical-align:middle;word-wrap:break-word}
   th{background:var(--panel2);color:var(--mut);font-weight:600;font-size:12px}
@@ -71,7 +79,10 @@
     <button data-f="200" data-i18n="f200">Sobre SMA 200</button>
   </div>
   <div class="add">
-    <input id="newSym" placeholder="Agregar ticket (ej: VOO)" maxlength="12" autocomplete="off">
+    <div class="addwrap">
+      <input id="newSym" placeholder="Busca por nombre o ticket (ej: Tesla, VOO)" maxlength="30" autocomplete="off">
+      <div id="suggest" hidden></div>
+    </div>
     <button id="addBtn" data-i18n="add">Agregar</button>
   </div>
   <div id="err"></div>
@@ -107,7 +118,8 @@ const I18N = {
   es: {
     subFamily:'Versión familiar', auto:'Se actualiza sola cada 15 minutos', loading:'Cargando…',
     fAll:'Todos', f20:'Sobre SMA 20', f50:'Sobre SMA 50', f100:'Sobre SMA 100', f200:'Sobre SMA 200',
-    add:'Agregar', phAdd:'Agregar ticket (ej: VOO)',
+    add:'Agregar', phAdd:'Busca por nombre o ticket (ej: Tesla, VOO)',
+    notFound:'No se encontró: ', notFoundHint:' — escribe el nombre de la empresa y elige de la lista que aparece.',
     thTicket:'Ticket', thType:'Tipo', thPos:'Posición', thSignal:'Señal', thDays:'Días en señal', thPrice:'Precio', thChange:'Cambio %', thLevel:'Nivel',
     loadingData:'Cargando datos…', noResults:'Sin resultados para este filtro.',
     noDataFor:'Sin datos para: ', loadError:'Error cargando datos: ', updated:'Actualizado: ',
@@ -129,7 +141,8 @@ const I18N = {
   en: {
     subFamily:'Family version', auto:'Updates automatically every 15 minutes', loading:'Loading…',
     fAll:'All', f20:'Above SMA 20', f50:'Above SMA 50', f100:'Above SMA 100', f200:'Above SMA 200',
-    add:'Add', phAdd:'Add a ticker (e.g. VOO)',
+    add:'Add', phAdd:'Search by name or ticker (e.g. Tesla, VOO)',
+    notFound:'Not found: ', notFoundHint:' — type the company name and pick from the list that appears.',
     thTicket:'Ticker', thType:'Type', thPos:'Position', thSignal:'Signal', thDays:'Days in signal', thPrice:'Price', thChange:'Change %', thLevel:'Level',
     loadingData:'Loading data…', noResults:'No results for this filter.',
     noDataFor:'No data for: ', loadError:'Error loading data: ', updated:'Updated: ',
@@ -182,7 +195,7 @@ async function load(){
     const j = await r.json();
     data = j.symbols || [];
     const bad = data.filter(x=>x.error);
-    if (bad.length) $('#err').textContent = t('noDataFor') + bad.map(x=>x.display).join(', ');
+    if (bad.length) $('#err').textContent = t('notFound') + bad.map(x=>x.display).join(', ') + t('notFoundHint');
     data = data.filter(x=>!x.error);
     lastUpdated = j.updatedAt;
     $('#updated').textContent = t('updated') + new Date(j.updatedAt).toLocaleString(lang==='en'?'en-US':'es-US');
@@ -235,15 +248,54 @@ $('#filters').addEventListener('click', e=>{
   document.querySelectorAll('#filters button').forEach(b=>b.classList.remove('on'));
   e.target.classList.add('on'); filter = e.target.dataset.f; render();
 });
-function addSym(){
-  let v = $('#newSym').value.trim().toUpperCase(); if(!v) return;
+const suggestBox = $('#suggest');
+let suggestItems = [], searchTimer = null;
+function hideSuggest(){ suggestBox.hidden = true; suggestBox.innerHTML=''; suggestItems=[]; }
+function addSymbol(v){
+  v = String(v||'').trim().toUpperCase(); if(!v) return;
   if(v==='APPLE') v='AAPL';
   if(!symbols.includes(v)) symbols.push(v);
   localStorage.setItem('scannerSymbols', JSON.stringify(symbols));
-  $('#newSym').value=''; load();
+  $('#newSym').value=''; hideSuggest(); load();
+}
+async function runSearch(q){
+  try{
+    const r = await fetch('/api/search?q=' + encodeURIComponent(q));
+    const j = await r.json();
+    if ($('#newSym').value.trim() !== q) return;
+    suggestItems = j.results || [];
+    if(!suggestItems.length){ hideSuggest(); return; }
+    suggestBox.innerHTML='';
+    for(const it of suggestItems){
+      const b=document.createElement('button'); b.type='button';
+      b.innerHTML = '<span class="sym">' + esc(it.symbol) + '</span><span class="nm">' + esc(it.name) + '</span><span class="pill ' + (it.type==='ETF'?'etf':'stock') + '">' + esc(it.type) + '</span>';
+      b.addEventListener('click', ()=>addSymbol(it.symbol));
+      suggestBox.appendChild(b);
+    }
+    suggestBox.hidden = false;
+  }catch(e){ hideSuggest(); }
+}
+$('#newSym').addEventListener('input', ()=>{
+  const q = $('#newSym').value.trim();
+  clearTimeout(searchTimer);
+  if(q.length < 2){ hideSuggest(); return; }
+  searchTimer = setTimeout(()=>runSearch(q), 300);
+});
+async function runSearchAndAdd(q){
+  await runSearch(q);
+  if(suggestItems.length) addSymbol(suggestItems[0].symbol);
+  else $('#err').textContent = t('notFound') + q.toUpperCase() + t('notFoundHint');
+}
+function addSym(){
+  if(suggestItems.length){ addSymbol(suggestItems[0].symbol); return; }
+  const raw = $('#newSym').value.trim(); if(!raw) return;
+  const v = raw.toUpperCase();
+  if(!raw.includes(' ') && /^[A-Z0-9.\-]{1,12}$/.test(v)){ addSymbol(v); return; }
+  runSearchAndAdd(raw);
 }
 $('#addBtn').addEventListener('click', addSym);
 $('#newSym').addEventListener('keydown', e=>{ if(e.key==='Enter') addSym(); });
+document.addEventListener('click', e=>{ if(!e.target.closest('.addwrap')) hideSuggest(); });
 $('#langEs').addEventListener('click', ()=>setLang('es'));
 $('#langEn').addEventListener('click', ()=>setLang('en'));
 
