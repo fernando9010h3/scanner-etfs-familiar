@@ -197,12 +197,38 @@ async function getSymbol(symbol) {
   return data;
 }
 
+// ---------- búsqueda de símbolos (por nombre de empresa o ticket) ----------
+async function searchSymbols(q) {
+  const url = (host) => `https://${host}.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0&listsCount=0`;
+  const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/json' } };
+  for (const host of ['query2', 'query1']) {
+    try {
+      const r = await fetch(url(host), opts);
+      if (!r.ok) continue;
+      const j = await r.json();
+      const quotes = (j && j.quotes) || [];
+      return quotes
+        .filter(x => x && x.symbol && (x.quoteType === 'EQUITY' || x.quoteType === 'ETF'))
+        .slice(0, 8)
+        .map(x => ({ symbol: x.symbol, name: x.longname || x.shortname || x.symbol, type: x.quoteType === 'ETF' ? 'ETF' : 'Stock' }));
+    } catch (_) { /* probar el siguiente host */ }
+  }
+  return [];
+}
+
 // ---------- HTTP ----------
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8' };
 
 const server = http.createServer(async (req, res) => {
   try {
     const u = new URL(req.url, 'http://localhost');
+    if (u.pathname === '/api/search') {
+      const q = String(u.searchParams.get('q') || '').trim().slice(0, 40);
+      const results = q ? await searchSymbols(q) : [];
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ q, results }));
+      return;
+    }
     if (u.pathname === '/api/scanner') {
       let symbols = DEFAULT_SYMBOLS;
       const q = u.searchParams.get('symbols');
