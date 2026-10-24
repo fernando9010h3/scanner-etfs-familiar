@@ -26,6 +26,8 @@ function normalizeSymbol(raw) {
 }
 function displaySymbol(sym) { return DISPLAY[sym] || sym; }
 function round2(n) { return n == null || !isFinite(n) ? null : Math.round(n * 100) / 100; }
+// Precios menores a $1 (criptos chicas como DOGE/SHIB) necesitan más decimales.
+function roundPrice(n) { return n == null || !isFinite(n) ? null : (Math.abs(n) >= 1 ? round2(n) : Math.round(n * 1e6) / 1e6); }
 
 // ---------- datos Yahoo ----------
 async function fetchChart(symbol) {
@@ -162,17 +164,17 @@ function buildSymbolData(symbol, chart) {
   const from = Math.max(0, closes.length - 126);
   const series6m = {
     dates: dates.slice(from),
-    closes: closes.slice(from).map(round2),
-    sma20: smaSeriesMap[20].slice(from).map(round2),
-    sma50: smaSeriesMap[50].slice(from).map(round2),
+    closes: closes.slice(from).map(roundPrice),
+    sma20: smaSeriesMap[20].slice(from).map(roundPrice),
+    sma50: smaSeriesMap[50].slice(from).map(roundPrice),
   };
 
   return {
     symbol,
     display: displaySymbol(symbol),
     name: meta.longName || meta.shortName || symbol,
-    type: meta.instrumentType === 'ETF' ? 'ETF' : (meta.instrumentType === 'EQUITY' ? 'Stock' : (meta.instrumentType || '—')),
-    price: round2(price),
+    type: meta.instrumentType === 'ETF' ? 'ETF' : (meta.instrumentType === 'EQUITY' ? 'Stock' : (meta.instrumentType === 'CRYPTOCURRENCY' ? 'Crypto' : (meta.instrumentType || '—'))),
+    price: roundPrice(price),
     changePct: round2(changePct),
     rsi: round2(rsi),
     smas: { 20: round2(smasNow[20]), 50: round2(smasNow[50]), 100: round2(smasNow[100]), 200: round2(smasNow[200]) },
@@ -210,9 +212,9 @@ async function searchSymbols(q) {
       const j = await r.json();
       const quotes = (j && j.quotes) || [];
       return quotes
-        .filter(x => x && x.symbol && (x.quoteType === 'EQUITY' || x.quoteType === 'ETF'))
+        .filter(x => x && x.symbol && (x.quoteType === 'EQUITY' || x.quoteType === 'ETF' || x.quoteType === 'CRYPTOCURRENCY'))
         .slice(0, 8)
-        .map(x => ({ symbol: x.symbol, name: x.longname || x.shortname || x.symbol, type: x.quoteType === 'ETF' ? 'ETF' : 'Stock' }));
+        .map(x => ({ symbol: x.symbol, name: x.longname || x.shortname || x.symbol, type: x.quoteType === 'ETF' ? 'ETF' : (x.quoteType === 'CRYPTOCURRENCY' ? 'Crypto' : 'Stock') }));
     } catch (_) { /* probar el siguiente host */ }
   }
   return [];
