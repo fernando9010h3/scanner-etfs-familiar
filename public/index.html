@@ -151,6 +151,7 @@ const I18N = {
     etfTitle:'Datos ETF.com · 5 puntos del curso', etfHoldings:'Top holdings', etfTop10:'Peso top 10', etfDist:'Distribución', etfPer:'PER del ETF', etfRet1y:'Rend. 1 año', etfRet5y:'Rend. 5 años', etfFit:'Calificación Fit',
     etfNote:'Foto del 24/10/2026 · Holdings al 29/09 (VOO, VTI) y al 21/10 (resto). Se refresca cuando se vuelve a consultar etf.com.',
     etfLiveNote:'Actualizado automáticamente: rendimientos de la API pública de ETF.com y holdings de StockAnalysis. La calificación Fit es propietaria de ETF.com y solo existe como foto.',
+    etfYahooNote:'Rendimientos calculados con precios Yahoo porque la API de ETF.com no respondió desde el servidor. Holdings de StockAnalysis.',
     etfRet1m:'Rend. 1 mes', etfRetYtd:'Rend. año', etfFitPhoto:'foto 24/10/2026', etfAsOf:'al',
     etfJepqNote:'Ojo: el 11.48% de JEPQ es distribución de su estrategia con opciones, no un dividendo tradicional; aún no tiene rendimiento a 5 años en etf.com.',
     howEtf:'En los ETFs, el detalle incluye además un bloque ETF.com con los 5 puntos del curso: holdings y rendimientos se actualizan solos; la calificación Fit es foto del 24/10/2026.',
@@ -187,6 +188,7 @@ const I18N = {
     etfTitle:'ETF.com data · course 5 points', etfHoldings:'Top holdings', etfTop10:'Top 10 weight', etfDist:'Distribution', etfPer:'ETF P/E', etfRet1y:'1-yr return', etfRet5y:'5-yr return', etfFit:'Fit grade',
     etfNote:'Snapshot 10/24/2026 · Holdings as of 09/29 (VOO, VTI) and 10/21 (rest). Refreshed when etf.com is consulted again.',
     etfLiveNote:'Auto-updated: returns from the public ETF.com API and holdings from StockAnalysis. The Fit grade is proprietary to ETF.com and only exists as a snapshot.',
+    etfYahooNote:'Returns computed from Yahoo prices because the ETF.com API did not answer from the server. Holdings from StockAnalysis.',
     etfRet1m:'1-mo return', etfRetYtd:'YTD return', etfFitPhoto:'snapshot 10/24/2026', etfAsOf:'as of',
     etfJepqNote:'Note: JEPQ\'s 11.48% is distribution from its options strategy, not a traditional dividend; it has no 5-year return on etf.com yet.',
     howEtf:'For ETFs, the detail also includes an ETF.com block with the course\'s 5 points: holdings and returns update on their own; the Fit grade is a snapshot from 10/24/2026.',
@@ -311,7 +313,7 @@ function etfBlock(d){
     if (live.r5y != null) s += '<span>' + t('etfRet5y') + ': <b>' + live.r5y + '%</b></span>';
     const fit = ETF_COM[d.symbol] && ETF_COM[d.symbol].fit;
     if (fit) s += '<span>' + t('etfFit') + ': <b>' + fit + ' (' + t('etfFitPhoto') + ')</b></span>';
-    s += '</div><div>' + t('etfLiveNote') + (live.asOf ? ' (' + t('etfAsOf') + ' ' + esc(live.asOf) + ')' : '') + '</div>';
+    s += '</div><div>' + (live.src === 'yahoo' ? t('etfYahooNote') : t('etfLiveNote')) + (live.asOf ? ' (' + t('etfAsOf') + ' ' + esc(live.asOf) + ')' : '') + '</div>';
     if (d.symbol === 'JEPQ') s += '<div>' + t('etfJepqNote') + '</div>';
     return s;
   }
