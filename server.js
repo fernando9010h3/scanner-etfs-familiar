@@ -293,15 +293,70 @@ async function fetchFundamentals(symbol, kind) {
 const ETFCOM_CACHE_MS = 6 * 60 * 60 * 1000;
 const etfcomCache = new Map();
 let tickersCache = null;
+// Cabeceras de navegador + reintento: algunos hosts (p. ej. Render) son rechazados
+// por api-prod.etf.com con una llamada simple; con cabeceras completas y reintento
+// la mayoría de esos rechazos se superan.
+const ETF_API_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+  'Accept': 'application/json',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Origin': 'https://www.etf.com',
+  'Referer': 'https://www.etf.com/',
+};
+async function fetchJsonRetry(url, tries = 2) {
+  let lastErr = null;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const r = await fetch(url, { headers: ETF_API_HEADERS });
+      if (r.ok) return await r.json();
+      lastErr = new Error('HTTP ' + r.status);
+    } catch (e) { lastErr = e; }
+    if (i + 1 < tries) await new Promise(res => setTimeout(res, 800));
+  }
+  throw lastErr || new Error('fetch failed');
+}
 async function fetchFundIdMap() {
   if (tickersCache && Date.now() - tickersCache.at < 24 * 60 * 60 * 1000) return tickersCache.map;
-  const r = await fetch('https://api-prod.etf.com/v2/fund/tickers', { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const j = await r.json();
+  const j = await fetchJsonRetry('https://api-prod.etf.com/v2/fund/tickers');
   const map = {};
   for (const t of j) if (t && t.ticker && t.fundId) map[String(t.ticker).toUpperCase()] = t.fundId;
   tickersCache = { at: Date.now(), map };
   return map;
+}
+// Respaldo: rendimientos anualizados desde Yahoo (adjclose = con dividendos y splits).
+// Solo se usa si la API de ETF.com no responde; r5y solo si hay casi 5 años de historia
+// (JEPQ, más joven, queda sin 5 años igual que en ETF.com).
+async function fetchYahooReturns(symbol) {
+  const url = (host) => `https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5y&interval=1d`;
+  const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/json' } };
+  for (const host of ['query1', 'query2']) {
+    try {
+      const r = await fetch(url(host), opts);
+      if (!r.ok) continue;
+      const j = await r.json();
+      const res = j && j.chart && j.chart.result && j.chart.result[0];
+      if (!res) continue;
+      const q = (res.indicators && res.indicators.quote && res.indicators.quote[0]) || {};
+      const adj = (res.indicators && res.indicators.adjclose && res.indicators.adjclose[0] && res.indicators.adjclose[0].adjclose) || [];
+      const closes = [], stamps = [];
+      const raw = adj.length ? adj : (q.close || []);
+      const ts = res.timestamp || [];
+      for (let i = 0; i < raw.length; i++) {
+        if (raw[i] != null && isFinite(raw[i]) && ts[i]) { closes.push(raw[i]); stamps.push(ts[i]); }
+      }
+      if (closes.length < 260) continue;
+      const last = closes[closes.length - 1];
+      const ann = (a, b, days) => days > 0 ? round2((Math.pow(a / b, 365.25 / days) - 1) * 100) : null;
+      const out = { src: 'yahoo' };
+      const i1 = closes.length - 1 - 252;
+      if (i1 >= 0) out.r1y = ann(last, closes[i1], (stamps[stamps.length - 1] - stamps[i1]) / 86400);
+      const spanDays = (stamps[stamps.length - 1] - stamps[0]) / 86400;
+      if (spanDays >= 4.9 * 365.25) out.r5y = ann(last, closes[0], spanDays);
+      out.asOf = new Date(stamps[stamps.length - 1] * 1000).toISOString().slice(0, 10);
+      return out;
+    } catch (_) { /* siguiente host */ }
+  }
+  return null;
 }
 async function fetchEtfcom(symbol) {
   const hit = etfcomCache.get(symbol);
@@ -311,17 +366,20 @@ async function fetchEtfcom(symbol) {
     const map = await fetchFundIdMap();
     const id = map[symbol];
     if (id) {
-      const r = await fetch(`https://api-prod.etf.com/v2/fund/performance/${id}`, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
-      if (r.ok) {
-        const j = await r.json();
-        const p = j.priceData || {};
-        data.asOf = j.asOfDate ? String(j.asOfDate).split(',')[0] : null;
-        data.r1m = round2(p.return1M); data.r3m = round2(p.return3M);
-        data.rYtd = round2(p.returnYTD); data.r1y = round2(p.return1Y);
-        data.r3y = round2(p.return3Y); data.r5y = round2(p.return5Y);
-      }
+      const j = await fetchJsonRetry(`https://api-prod.etf.com/v2/fund/performance/${id}`);
+      const p = j.priceData || {};
+      data.asOf = j.asOfDate ? String(j.asOfDate).split(',')[0] : null;
+      data.r1m = round2(p.return1M); data.r3m = round2(p.return3M);
+      data.rYtd = round2(p.returnYTD); data.r1y = round2(p.return1Y);
+      data.r3y = round2(p.return3Y); data.r5y = round2(p.return5Y);
     }
-  } catch (_) { /* rendimientos opcionales */ }
+  } catch (_) { /* rendimientos por API opcionales; abajo va el respaldo Yahoo */ }
+  if (data.r1y == null) {
+    try {
+      const y = await fetchYahooReturns(symbol);
+      if (y) Object.assign(data, y);
+    } catch (_) { /* sin respaldo */ }
+  }
   try {
     const r = await fetch(`https://stockanalysis.com/etf/${symbol.toLowerCase()}/holdings/`, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'text/html' } });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -336,7 +394,9 @@ async function fetchEtfcom(symbol) {
     const th = clean.match(/Total Holdings\s*<div[^>]*>([0-9,]+)<\/div>/);
     if (th) data.count = parseInt(th[1].replace(/,/g, ''), 10);
   } catch (_) { /* holdings opcionales */ }
-  etfcomCache.set(symbol, { at: Date.now(), data });
+  // No cachear resultados vacíos: si todo falló, el próximo intento reintenta
+  // en vez de servir 6 h de vacío.
+  if (data.top || data.r1y != null) etfcomCache.set(symbol, { at: Date.now(), data });
   return data;
 }
 
