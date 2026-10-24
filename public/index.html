@@ -128,6 +128,7 @@
     </ul>
     <p><strong data-i18n="howLevelWord">Nivel 0–100</strong><span data-i18n="howLevel">: Nivel = redondeo de [ 0,6 × (100 − RSI 14) + 0,4 × (25 × número de SMA (20/50/100/200) que están por encima del precio) ], limitado entre 0 y 100. Un Nivel más alto combina RSI bajo (menos extendido) con precio por debajo de más SMA.</span></p>
     <p data-i18n="howRest">RSI 14 se calcula con el método Wilder sobre los cierres diarios. Posición compara el precio con las SMA 20/50/100/200 y muestra la distancia en el detalle de cada fila. Días en señal cuenta los días de mercado seguidos con la misma señal actual, recalculando la señal día por día. Toca una fila para ver su gráfico de 6 meses con SMA 20/50 y su rango de 52 semanas. Toca el Ticket para abrir su gráfica avanzada en Yahoo Finance.</p>
+    <p data-i18n="howEtf"></p>
   </section>
   <footer data-i18n="footer">Herramienta informativa y educativa. No es asesoría financiera.</footer>
 </main>
@@ -147,6 +148,10 @@ const I18N = {
     fundTitle:'📚 Fundamentales del curso', fundLoading:'Cargando fundamentales…', fundNone:'Sin datos fundamentales disponibles por ahora.',
     fundCryptoNote:'Las criptomonedas no tienen fundamentales: se analizan solo con precio, RSI, SMA y Supertrend.',
     fundFilter:'Filtro del curso (ROA/ROE/ROI ≥ 5%):', fundPass:'✅ pasa', fundFail:'⚠️ no pasa',
+    etfTitle:'Datos ETF.com · 5 puntos del curso', etfHoldings:'Top holdings', etfTop10:'Peso top 10', etfDist:'Distribución', etfPer:'PER del ETF', etfRet1y:'Rend. 1 año', etfRet5y:'Rend. 5 años', etfFit:'Calificación Fit',
+    etfNote:'Foto del 24/10/2026 · Holdings al 29/09 (VOO, VTI) y al 21/10 (resto). Se refresca cuando se vuelve a consultar etf.com.',
+    etfJepqNote:'Ojo: el 11.48% de JEPQ es distribución de su estrategia con opciones, no un dividendo tradicional; aún no tiene rendimiento a 5 años en etf.com.',
+    howEtf:'En los ETFs con datos, el detalle incluye además un bloque ETF.com con los 5 puntos del curso (holdings, rendimiento, calificación, expense ratio y dividendo) como foto fechada.',
     supertrend:'Supertrend', stUp:'Alcista', stDown:'Bajista',
     per:'PER', perFwd:'PER futuro', roa:'ROA', roe:'ROE', roi:'ROI', margin:'Margen', div:'Dividendo', expense:'Expense ratio', beta:'Beta', mcap:'Cap. mercado', holdings:'Holdings', target:'Precio objetivo',
     notFound:'No se encontró: ', notFoundHint:' — escribe el nombre de la empresa y elige de la lista que aparece.',
@@ -177,6 +182,10 @@ const I18N = {
     fundTitle:'📚 Course fundamentals', fundLoading:'Loading fundamentals…', fundNone:'No fundamental data available right now.',
     fundCryptoNote:'Cryptos have no fundamentals: they are analyzed with price, RSI, SMA and Supertrend only.',
     fundFilter:'Course filter (ROA/ROE/ROI ≥ 5%):', fundPass:'✅ passes', fundFail:'⚠️ fails',
+    etfTitle:'ETF.com data · course 5 points', etfHoldings:'Top holdings', etfTop10:'Top 10 weight', etfDist:'Distribution', etfPer:'ETF P/E', etfRet1y:'1-yr return', etfRet5y:'5-yr return', etfFit:'Fit grade',
+    etfNote:'Snapshot 10/24/2026 · Holdings as of 09/29 (VOO, VTI) and 10/21 (rest). Refreshed when etf.com is consulted again.',
+    etfJepqNote:'Note: JEPQ\'s 11.48% is distribution from its options strategy, not a traditional dividend; it has no 5-year return on etf.com yet.',
+    howEtf:'For ETFs with data, the detail also includes an ETF.com block with the course\'s 5 points (holdings, performance, rating, expense ratio and dividend) as a dated snapshot.',
     supertrend:'Supertrend', stUp:'Bullish', stDown:'Bearish',
     per:'P/E', perFwd:'Forward P/E', roa:'ROA', roe:'ROE', roi:'ROI', margin:'Margin', div:'Dividend', expense:'Expense ratio', beta:'Beta', mcap:'Market cap', holdings:'Holdings', target:'Price target',
     notFound:'Not found: ', notFoundHint:' — type the company name and pick from the list that appears.',
@@ -264,11 +273,40 @@ async function load(force){
 }
 
 function signalClass(s){return s==='Favorable'?'fav':(s==='No Favorable'?'nofav':'inter')}
+// Foto ETF.com 24/10/2026 (con sesión): holdings, distribución, PER del ETF,
+// rendimientos y calificación Fit. Sin vía pública automática: se refresca a mano.
+const ETF_COM = {
+  VOO:{count:505,top10:39.15,top:[['NVDA',8.40],['AAPL',7.39],['MSFT',5.79],['AMZN',3.72],['GOOGL',3.07]],dist:1.05,per:26.12,r1y:15.71,r5y:12.58,fit:'A'},
+  SPYM:{top:[['NVDA',7.77],['AAPL',7.69],['MSFT',5.86],['AMZN',3.72],['GOOGL',2.88]],dist:1.00,r1y:15.73,r5y:12.58},
+  QQQM:{top:[['NVDA',8.15],['AAPL',8.09],['MSFT',6.16],['AMZN',4.30],['MU',4.25]],dist:0.44,r1y:16.96,r5y:14.26},
+  SCHD:{top:[['PG',4.41],['TXN',4.31],['KO',4.25],['CVX',4.21],['UNH',4.18]],dist:3.04,r1y:35.74,r5y:10.24},
+  VTI:{top:[['NVDA',7.14],['AAPL',6.63],['MSFT',5.20],['AMZN',3.30],['GOOGL',2.76]],dist:1.04,r1y:15.29,r5y:11.39},
+  RSP:{count:505,top10:2.68,top:[['PTC',0.30],['MRNA',0.29],['ACN',0.29],['IT',0.27],['HAS',0.26]],dist:1.47,per:20.85,r1y:16.77,r5y:8.39,fit:'A'},
+  JEPQ:{count:97,top10:50.57,top:[['NVDA',8.48],['AAPL',8.26],['MSFT',6.54],['GOOG',5.50],['MU',4.91]],dist:11.48,per:31.41,r1y:13.67,r5y:null,fit:'A'},
+  SPMO:{count:101,top10:50.37,top:[['AAPL',10.26],['MU',8.34],['AMD',5.10],['JNJ',4.98],['GOOGL',4.95]],dist:0.77,per:26.60,r1y:17.17,r5y:18.12,fit:'A'},
+  SCHG:{count:187,top10:60.69,top:[['NVDA',12.11],['AAPL',11.98],['MSFT',9.12],['AMZN',5.79],['GOOGL',4.48]],dist:0.39,per:32.96,r1y:9.41,r5y:12.79,fit:'B'}
+};
+function etfBlock(d){
+  const e = ETF_COM[d.symbol]; if(!e) return '';
+  let s = '<div><b>' + t('etfTitle') + '</b></div><div class="grid">';
+  s += '<span>' + t('etfHoldings') + ': <b>' + e.top.map(x=>esc(x[0])+' '+x[1]+'%').join(' · ') + '</b></span>';
+  if(e.count) s += '<span>' + t('holdings') + ': <b>' + e.count + '</b></span>';
+  if(e.top10) s += '<span>' + t('etfTop10') + ': <b>' + e.top10 + '%</b></span>';
+  s += '<span>' + t('etfDist') + ': <b>' + e.dist + '%</b></span>';
+  if(e.per) s += '<span>' + t('etfPer') + ': <b>' + e.per + '</b></span>';
+  s += '<span>' + t('etfRet1y') + ': <b>' + e.r1y + '%</b></span>';
+  if(e.r5y != null) s += '<span>' + t('etfRet5y') + ': <b>' + e.r5y + '%</b></span>';
+  if(e.fit) s += '<span>' + t('etfFit') + ': <b>' + e.fit + '</b></span>';
+  s += '</div><div>' + t('etfNote') + '</div>';
+  if(d.symbol === 'JEPQ') s += '<div>' + t('etfJepqNote') + '</div>';
+  return s;
+}
 function fundBlock(d){
   const st = d.supertrend;
   let s = '<div class="fund"><div><b>' + t('fundTitle') + '</b> · ' + t('supertrend') + ': ';
   s += st ? '<b class="' + (st.direction==='Alcista'?'up':'down') + '">' + (st.direction==='Alcista'?t('stUp'):t('stDown')) + ' ($' + fmtPrice(st.value) + ')</b>' : '—';
   s += '</div>';
+  if (d.type === 'ETF') s += etfBlock(d);
   if (d.type === 'Crypto') { s += '<div>' + t('fundCryptoNote') + '</div></div>'; return s; }
   if (d._fund === undefined) {
     d._fund = null;
