@@ -188,9 +188,11 @@ function buildSymbolData(symbol, chart) {
   };
 }
 
-async function getSymbol(symbol) {
-  const hit = cache.get(symbol);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
+async function getSymbol(symbol, force) {
+  if (!force) {
+    const hit = cache.get(symbol);
+    if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
+  }
   const chart = await fetchChart(symbol);
   const data = buildSymbolData(symbol, chart);
   cache.set(symbol, { at: Date.now(), data });
@@ -236,8 +238,9 @@ const server = http.createServer(async (req, res) => {
         symbols = [...new Set(q.split(',').map(normalizeSymbol).filter(Boolean))].slice(0, 30);
         if (!symbols.length) symbols = DEFAULT_SYMBOLS;
       }
+      const fresh = u.searchParams.get('fresh') === '1';
       const results = await Promise.all(symbols.map(async (s) => {
-        try { return await getSymbol(s); }
+        try { return await getSymbol(s, fresh); }
         catch (e) { return { symbol: s, display: displaySymbol(s), error: String(e.message || e) }; }
       }));
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
