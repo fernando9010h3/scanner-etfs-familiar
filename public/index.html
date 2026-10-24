@@ -54,6 +54,7 @@
   .fav{background:linear-gradient(135deg, rgba(34,197,94,.60), rgba(21,128,61,.38))}
   .nofav{background:linear-gradient(135deg, rgba(244,63,94,.62), rgba(190,18,60,.40))}
   .inter{background:linear-gradient(135deg, rgba(245,158,11,.66), rgba(180,83,9,.42))}
+  .crypto{background:linear-gradient(135deg, rgba(247,147,26,.70), rgba(214,116,0,.46))}
   a.tick{color:#fff;font-weight:800;text-decoration:none}
   a.tick:hover{text-decoration:underline}
   .pos{color:var(--mut);font-size:12px}
@@ -210,6 +211,7 @@ function setLang(l){ lang = l; localStorage.setItem('scannerLang', l); applyLang
 const $ = s => document.querySelector(s);
 function esc(s){return String(s==null?'—':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function fmt(n,d=2){return n==null?'—':Number(n).toFixed(d)}
+function fmtPrice(n){return n==null?'—':(Math.abs(n)>=1?Number(n).toFixed(2):String(Number(Number(n).toFixed(6))))}
 
 let lastUpdated = null;
 async function load(force){
@@ -266,13 +268,16 @@ function render(){
   if(!rows.length){ tb.innerHTML='<tr><td colspan="9">' + (data.length ? t('noResults') : (symbols.length ? t('loadingData') : t('emptyList'))) + '</td></tr>'; return; }
   for(const d of rows){
     const tr=document.createElement('tr'); tr.className='row';
-    tr.innerHTML = `<td><img class="symlogo" src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(d.symbol)}" alt="" loading="lazy"> <a class="tick" href="https://finance.yahoo.com/quote/${encodeURIComponent(d.symbol)}/chart/" target="_blank" rel="noopener">${esc(d.display)}</a> <button class="del" title="${t('remove')}">×</button></td>
-      <td><span class="pill ${d.type==='ETF'?'etf':'stock'}">${esc(d.type)}</span></td>
+    const logoUrl = d.type==='Crypto'
+      ? 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/' + d.symbol.split('-')[0].toLowerCase() + '.png'
+      : 'https://assets.parqet.com/logos/symbol/' + encodeURIComponent(d.symbol);
+    tr.innerHTML = `<td><img class="symlogo" src="${logoUrl}" alt="" loading="lazy"> <a class="tick" href="https://finance.yahoo.com/quote/${encodeURIComponent(d.symbol)}/chart/" target="_blank" rel="noopener">${esc(d.display)}</a> <button class="del" title="${t('remove')}">×</button></td>
+      <td><span class="pill ${d.type==='ETF'?'etf':(d.type==='Crypto'?'crypto':'stock')}">${esc(d.type)}</span></td>
       <td>${fmt(d.rsi,1)}</td>
       <td class="pos">${esc(posText(d))}</td>
       <td><span class="pill ${signalClass(d.signal)}">${esc(sigText(d.signal))}</span></td>
       <td>${d.daysInSignal==null?'—':d.daysInSignal}</td>
-      <td>$${fmt(d.price)}</td>
+      <td>$${fmtPrice(d.price)}</td>
       <td class="${d.changePct>=0?'up':'down'}">${d.changePct==null?'—':(d.changePct>=0?'+':'')+fmt(d.changePct)+'%'}</td>
       <td>${d.nivel==null?'—':d.nivel}<div class="lvl"><div style="width:${d.nivel||0}%"></div></div></td>`;
     const logoImg = tr.querySelector('.symlogo');
@@ -314,7 +319,7 @@ async function runSearch(q){
     suggestBox.innerHTML='';
     for(const it of suggestItems){
       const b=document.createElement('button'); b.type='button';
-      b.innerHTML = '<span class="sym">' + esc(it.symbol) + '</span><span class="nm">' + esc(it.name) + '</span><span class="pill ' + (it.type==='ETF'?'etf':'stock') + '">' + esc(it.type) + '</span>';
+      b.innerHTML = '<span class="sym">' + esc(it.symbol) + '</span><span class="nm">' + esc(it.name) + '</span><span class="pill ' + (it.type==='ETF'?'etf':(it.type==='Crypto'?'crypto':'stock')) + '">' + esc(it.type) + '</span>';
       b.addEventListener('click', ()=>addSymbol(it.symbol));
       suggestBox.appendChild(b);
     }
@@ -388,12 +393,12 @@ function exportImage(){
     ctx.fillText((d.display||'?').charAt(0), cols.ticket+17, cy+6); ctx.textAlign='left';
     ctx.fillStyle='#fff'; ctx.font='800 27px system-ui, sans-serif'; ctx.textBaseline='middle';
     ctx.fillText(d.display, cols.ticket+46, cy+1); ctx.textBaseline='alphabetic';
-    pillCanvas(ctx, cols.type, cy-17, d.type, d.type==='ETF' ? ['rgba(168,85,247,.72)','rgba(126,34,206,.50)'] : ['rgba(56,189,248,.72)','rgba(2,132,199,.50)']);
+    pillCanvas(ctx, cols.type, cy-17, d.type, d.type==='ETF' ? ['rgba(168,85,247,.72)','rgba(126,34,206,.50)'] : (d.type==='Crypto' ? ['rgba(247,147,26,.80)','rgba(214,116,0,.55)'] : ['rgba(56,189,248,.72)','rgba(2,132,199,.50)']));
     ctx.fillStyle='#e8eef7'; ctx.font='400 25px system-ui, sans-serif';
     ctx.fillText(fmt(d.rsi,1), cols.rsi, cy+9);
     pillCanvas(ctx, cols.signal, cy-17, sigText(d.signal), sigColors[d.signal] || sigColors['Interesante']);
     ctx.fillStyle='#e8eef7'; ctx.font='700 25px system-ui, sans-serif';
-    ctx.fillText('$'+fmt(d.price), cols.price, cy+9);
+    ctx.fillText('$'+fmtPrice(d.price), cols.price, cy+9);
     ctx.fillStyle = d.changePct==null ? '#9db2cc' : (d.changePct>=0 ? '#22c55e' : '#ef4444'); ctx.font='700 23px system-ui, sans-serif';
     ctx.fillText(d.changePct==null?'—':((d.changePct>=0?'+':'')+fmt(d.changePct)+'%'), cols.change, cy+9);
   });
