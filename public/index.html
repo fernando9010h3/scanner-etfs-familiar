@@ -18,6 +18,9 @@
   .bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
   .bar button{background:var(--panel2);color:var(--txt);border:1px solid #24406e;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
   .bar button.on{background:#1d4ed8;border-color:#1d4ed8}
+  #refreshBtn{background:#13294d;border:1px solid #24406e;color:var(--txt);border-radius:999px;padding:2px 12px;font-size:12px;cursor:pointer}
+  #refreshBtn:active{background:#1d4ed8}
+  #refreshBtn:disabled{opacity:.55;cursor:default}
   .add{display:flex;gap:6px;margin:8px 0 14px}
   .addwrap{position:relative;flex:1;display:flex}
   .add input{flex:1;min-width:120px;background:var(--panel);border:1px solid #24406e;border-radius:8px;color:var(--txt);padding:8px 10px;font-size:14px}
@@ -64,7 +67,7 @@
 <body>
 <header>
   <h1>📊 Scanner de ETFs</h1>
-  <div class="sub"><span data-i18n="subFamily">Versión familiar</span> · <span id="updated">Cargando…</span> · <span data-i18n="auto">Se actualiza sola cada 15 minutos</span></div>
+  <div class="sub"><span data-i18n="subFamily">Versión familiar</span> · <span id="updated">Cargando…</span> · <span data-i18n="auto">Se actualiza sola cada 15 minutos</span> · <button id="refreshBtn" type="button" data-i18n="refresh">↻ Actualizar</button></div>
   <div class="lang">
     <button id="langEs" type="button">🇪🇸 Español</button>
     <button id="langEn" type="button">🇺🇸 English</button>
@@ -120,7 +123,7 @@ const I18N = {
   es: {
     subFamily:'Versión familiar', auto:'Se actualiza sola cada 15 minutos', loading:'Cargando…',
     fAll:'Todos', f20:'Sobre SMA 20', f50:'Sobre SMA 50', f100:'Sobre SMA 100', f200:'Sobre SMA 200',
-    add:'Agregar', phAdd:'Busca por nombre o ticket (ej: Tesla, VOO)',
+    add:'Agregar', phAdd:'Busca por nombre o ticket (ej: Tesla, VOO)', refresh:'↻ Actualizar',
     notFound:'No se encontró: ', notFoundHint:' — escribe el nombre de la empresa y elige de la lista que aparece.',
     emptyList:'Tu lista está vacía. Busca arriba tu primer ETF o empresa (por nombre, ej: Tesla — o por ticket, ej: VOO) y agrégalo. Esta lista es solo tuya: se guarda en este teléfono/navegador y nadie más la ve ni la cambia.',
     thTicket:'Ticket', thType:'Tipo', thPos:'Posición', thSignal:'Señal', thDays:'Días en señal', thPrice:'Precio', thChange:'Cambio %', thLevel:'Nivel',
@@ -144,7 +147,7 @@ const I18N = {
   en: {
     subFamily:'Family version', auto:'Updates automatically every 15 minutes', loading:'Loading…',
     fAll:'All', f20:'Above SMA 20', f50:'Above SMA 50', f100:'Above SMA 100', f200:'Above SMA 200',
-    add:'Add', phAdd:'Search by name or ticker (e.g. Tesla, VOO)',
+    add:'Add', phAdd:'Search by name or ticker (e.g. Tesla, VOO)', refresh:'↻ Refresh',
     notFound:'Not found: ', notFoundHint:' — type the company name and pick from the list that appears.',
     emptyList:'Your list is empty. Search above for your first ETF or company (by name, e.g. Tesla — or by ticker, e.g. VOO) and add it. This list is yours alone: it is saved on this phone/browser and nobody else sees it or changes it.',
     thTicket:'Ticker', thType:'Type', thPos:'Position', thSignal:'Signal', thDays:'Days in signal', thPrice:'Price', thChange:'Change %', thLevel:'Level',
@@ -193,7 +196,7 @@ function esc(s){return String(s==null?'—':s).replace(/[&<>"]/g,c=>({'&':'&amp;
 function fmt(n,d=2){return n==null?'—':Number(n).toFixed(d)}
 
 let lastUpdated = null;
-async function load(){
+async function load(force){
   $('#err').textContent = '';
   if(!symbols.length){
     data = []; openSym = null; lastUpdated = null;
@@ -205,11 +208,22 @@ async function load(){
   }
   $('#emptyHint').hidden = true;
   try{
-    const r = await fetch('/api/scanner?symbols=' + encodeURIComponent(symbols.join(',')));
+    const r = await fetch('/api/scanner?symbols=' + encodeURIComponent(symbols.join(',')) + (force ? '&fresh=1' : ''));
     const j = await r.json();
     data = j.symbols || [];
     const bad = data.filter(x=>x.error);
-    if (bad.length) $('#err').textContent = t('notFound') + bad.map(x=>x.display).join(', ') + t('notFoundHint');
+    // Limpieza silenciosa: un símbolo guardado que Yahoo no reconoce se quita
+    // solo de la lista (sin avisos permanentes). Solo si al menos uno cargó
+    // bien — si fallaron TODOS, puede ser una caída temporal y no se toca nada.
+    if (bad.length && data.some(x=>!x.error)) {
+      const badSet = new Set(bad.map(x=>x.symbol));
+      const before = symbols.length;
+      symbols = symbols.filter(s=>!badSet.has(s));
+      if (symbols.length !== before) {
+        localStorage.setItem('scannerSymbols', JSON.stringify(symbols));
+        if (!symbols.length) { load(); return; }
+      }
+    }
     data = data.filter(x=>!x.error);
     lastUpdated = j.updatedAt;
     $('#updated').textContent = t('updated') + new Date(j.updatedAt).toLocaleString(lang==='en'?'en-US':'es-US');
@@ -263,8 +277,8 @@ $('#filters').addEventListener('click', e=>{
   e.target.classList.add('on'); filter = e.target.dataset.f; render();
 });
 const suggestBox = $('#suggest');
-let suggestItems = [], searchTimer = null;
-function hideSuggest(){ suggestBox.hidden = true; suggestBox.innerHTML=''; suggestItems=[]; }
+let suggestItems = [], searchTimer = null, suggestQuery = '';
+function hideSuggest(){ suggestBox.hidden = true; suggestBox.innerHTML=''; suggestItems=[]; suggestQuery=''; }
 function addSymbol(v){
   v = String(v||'').trim().toUpperCase(); if(!v) return;
   if(v==='APPLE') v='AAPL';
@@ -277,7 +291,7 @@ async function runSearch(q){
     const r = await fetch('/api/search?q=' + encodeURIComponent(q));
     const j = await r.json();
     if ($('#newSym').value.trim() !== q) return;
-    suggestItems = j.results || [];
+    suggestItems = j.results || []; suggestQuery = q;
     if(!suggestItems.length){ hideSuggest(); return; }
     suggestBox.innerHTML='';
     for(const it of suggestItems){
@@ -297,19 +311,27 @@ $('#newSym').addEventListener('input', ()=>{
 });
 async function runSearchAndAdd(q){
   await runSearch(q);
-  if(suggestItems.length) addSymbol(suggestItems[0].symbol);
+  if(suggestItems.length){
+    const exact = suggestItems.find(x=>x.symbol === q.trim().toUpperCase());
+    addSymbol((exact || suggestItems[0]).symbol);
+  }
   else $('#err').textContent = t('notFound') + q.toUpperCase() + t('notFoundHint');
 }
 function addSym(){
-  if(suggestItems.length){ addSymbol(suggestItems[0].symbol); return; }
   const raw = $('#newSym').value.trim(); if(!raw) return;
-  const v = raw.toUpperCase();
-  if(!raw.includes(' ') && /^[A-Z0-9.\-]{1,12}$/.test(v)){ addSymbol(v); return; }
+  // Todo pasa primero por el buscador: solo entran símbolos que SÍ existen
+  // (antes un texto como MCDONALDS se guardaba tal cual y el error quedaba fijo).
+  if(suggestItems.length && suggestQuery === raw){ addSymbol(suggestItems[0].symbol); return; }
   runSearchAndAdd(raw);
 }
 $('#addBtn').addEventListener('click', addSym);
 $('#newSym').addEventListener('keydown', e=>{ if(e.key==='Enter') addSym(); });
 document.addEventListener('click', e=>{ if(!e.target.closest('.addwrap')) hideSuggest(); });
+$('#refreshBtn').addEventListener('click', async ()=>{
+  const b = $('#refreshBtn');
+  b.disabled = true; b.textContent = t('loading');
+  try{ await load(true); } finally { b.disabled = false; b.textContent = t('refresh'); }
+});
 $('#langEs').addEventListener('click', ()=>setLang('es'));
 $('#langEn').addEventListener('click', ()=>setLang('en'));
 
