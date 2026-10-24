@@ -23,11 +23,12 @@ Abre http://localhost:3000 — el puerto se puede cambiar con la variable `PORT`
 - Precio actual (`regularMarketPrice`) y Cambio % del día.
 - **RSI 14 Wilder** sobre la serie completa de cierres.
 - **SMA 20/50/100/200**, distancia % del precio a cada una y texto de posición (ej: «Debajo de todas las SMA»).
-- **Señal — regla exacta de Fernando, solo estas 3 etiquetas:**
-  - **Favorable**: precio debajo de TODAS las SMA, o RSI ≤ 35.
-  - **No Favorable**: precio sobre 3 o más SMA, o RSI ≥ 65.
+- **Señal — regla exacta de Fernando, solo estas 3 etiquetas (sin RSI desde el 24/10/2026):**
+  - **Favorable**: precio debajo de TODAS las SMA.
+  - **No Favorable**: precio sobre 3 o más SMA.
   - **Interesante**: todo lo demás.
-- **Días en señal**: racha de días de mercado consecutivos terminando hoy con la misma señal actual, recalculando la señal día por día (RSI y SMA de cada día con los datos hasta ese día).
+- **Días en señal**: racha de días de mercado consecutivos terminando hoy con la misma señal actual, recalculando la señal día por día (solo SMA de cada día con los datos hasta ese día).
+- **🎯 Cerca SMA 200**: marca en la fila y filtro para los símbolos a menos de 1% de su SMA 200. Si el precio está por encima, la marca dice «Casi en zona premium» (por entrar al punto 1 del curso); si está por debajo, «Saliendo de zona premium». En el detalle, la distancia a la SMA 200 se resalta cuando está en la banda.
 - **Rango 52 semanas** y serie de 6 meses (cierres + SMA 20/50) para el gráfico del detalle de cada fila.
 
 ## Fórmula del Nivel 0–100
