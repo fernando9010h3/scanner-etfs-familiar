@@ -120,10 +120,13 @@ function buildSymbolData(symbol, chart) {
   const timestamps = chart.timestamp || [];
   const quote = (chart.indicators && chart.indicators.quote && chart.indicators.quote[0]) || {};
   const rawCloses = quote.close || [];
-  const closes = [], dates = [];
+  const rawHighs = quote.high || [], rawLows = quote.low || [];
+  const closes = [], dates = [], highs = [], lows = [];
   for (let i = 0; i < rawCloses.length; i++) {
     if (rawCloses[i] != null && isFinite(rawCloses[i])) {
       closes.push(rawCloses[i]);
+      highs.push(rawHighs[i] != null && isFinite(rawHighs[i]) ? rawHighs[i] : rawCloses[i]);
+      lows.push(rawLows[i] != null && isFinite(rawLows[i]) ? rawLows[i] : rawCloses[i]);
       dates.push(timestamps[i] ? new Date(timestamps[i] * 1000).toISOString().slice(0, 10) : null);
     }
   }
@@ -182,12 +185,103 @@ function buildSymbolData(symbol, chart) {
     position: positionText(price, smasNow),
     signal,
     daysInSignal,
+    supertrend: supertrend(highs, lows, closes),
     nivel: nivelFor(price, smasNow, rsi),
     week52: { low: round2(meta.fiftyTwoWeekLow), high: round2(meta.fiftyTwoWeekHigh) },
     closesCount: closes.length,
     lastDate: dates[last] || null,
     series6m,
   };
+}
+
+// ---------- Supertrend (del curso) a partir de OHLC del chart ----------
+// ATR(10) Wilder, factor 3. Devuelve {value, direction} de la última vela.
+function supertrend(highs, lows, closes, period = 10, mult = 3) {
+  const n = closes.length;
+  if (n < period + 2) return null;
+  const atr = new Array(n).fill(null);
+  let trSum = 0;
+  for (let i = 1; i <= period; i++) {
+    trSum += Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1]));
+  }
+  atr[period] = trSum / period;
+  for (let i = period + 1; i < n; i++) {
+    const tr = Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1]));
+    atr[i] = (atr[i - 1] * (period - 1) + tr) / period;
+  }
+  let fUb = null, fLb = null, trend = 1, st = null;
+  for (let i = period; i < n; i++) {
+    const hl2 = (highs[i] + lows[i]) / 2;
+    const bUb = hl2 + mult * atr[i], bLb = hl2 - mult * atr[i];
+    if (fUb === null) { fUb = bUb; fLb = bLb; }
+    else {
+      fUb = (bUb < fUb || closes[i - 1] > fUb) ? bUb : fUb;
+      fLb = (bLb > fLb || closes[i - 1] < fLb) ? bLb : fLb;
+    }
+    if (trend === 1) { if (closes[i] < fLb) trend = -1; }
+    else { if (closes[i] > fUb) trend = 1; }
+    st = trend === 1 ? fLb : fUb;
+  }
+  return st == null ? null : { value: round2(st), direction: trend === 1 ? 'Alcista' : 'Bajista' };
+}
+
+// ---------- fundamentales del curso (PER, ROA, ROE, ROI, margen, dividendo, expense) ----------
+// Fuente pública sin clave: páginas de stockanalysis.com. Falla suave: si no se puede
+// leer, devuelve {} y la página muestra «sin datos» sin romper la tabla.
+const FUND_CACHE_MS = 6 * 60 * 60 * 1000;
+const fundCache = new Map();
+function pageText(html) {
+  let t = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  return t.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+}
+function statAfter(text, label) {
+  const i = text.indexOf(label);
+  if (i < 0) return null;
+  const m = text.slice(i + label.length, i + label.length + 40).match(/-?[0-9][0-9,]*\.?[0-9]*\s?[%xTBMK]?/);
+  return m ? m[0].replace(/,/g, '').trim() : null;
+}
+async function fetchPage(url) {
+  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'text/html' } });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return pageText(await r.text());
+}
+async function fetchFundamentals(symbol, kind) {
+  const hit = fundCache.get(symbol);
+  if (hit && Date.now() - hit.at < FUND_CACHE_MS) return hit.data;
+  const slug = symbol.toLowerCase();
+  const data = {};
+  try {
+    if (kind === 'ETF') {
+      const t = await fetchPage(`https://stockanalysis.com/etf/${slug}/`);
+      data.per = statAfter(t, 'PE Ratio');
+      data.perFwd = statAfter(t, 'Forward PE');
+      data.expense = statAfter(t, 'Expense Ratio');
+      data.beta = statAfter(t, 'Beta');
+      const hm = t.match(/Holdings\s+([0-9][0-9,]{2,})/);
+      data.holdings = hm ? hm[1] : statAfter(t, 'Holdings');
+      const dm = t.match(/Dividend \$[0-9.]+ \(([0-9.]+)%\)/);
+      data.divYield = dm ? dm[1] + '%' : null;
+    } else if (kind === 'Stock') {
+      const t = await fetchPage(`https://stockanalysis.com/stocks/${slug}/`);
+      data.per = statAfter(t, 'PE Ratio');
+      data.perFwd = statAfter(t, 'Forward PE');
+      data.beta = statAfter(t, 'Beta');
+      data.mcap = statAfter(t, 'Market Cap');
+      const dm = t.match(/Dividend \$[0-9.]+ \(([0-9.]+)%\)/);
+      data.divYield = dm ? dm[1] + '%' : null;
+      const pt = t.match(/Price Target ([0-9.]+)/);
+      data.target = pt ? '$' + pt[1] : null;
+      try {
+        const r = await fetchPage(`https://stockanalysis.com/stocks/${slug}/financials/ratios/`);
+        data.roe = statAfter(r, 'Return on Equity (ROE)');
+        data.roa = statAfter(r, 'Return on Assets (ROA)');
+        data.roi = statAfter(r, 'Return on Invested Capital (ROIC)');
+        data.margin = statAfter(r, 'Net Profit Margin') || statAfter(r, 'Profit Margin') || statAfter(r, 'Net Margin');
+      } catch (_) { /* ratios opcionales */ }
+    }
+  } catch (_) { /* falla suave: sin fundamentales */ }
+  fundCache.set(symbol, { at: Date.now(), data });
+  return data;
 }
 
 async function getSymbol(symbol, force) {
@@ -231,6 +325,15 @@ const server = http.createServer(async (req, res) => {
       const results = q ? await searchSymbols(q) : [];
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({ q, results }));
+      return;
+    }
+    if (u.pathname === '/api/fundamentals') {
+      const sym = normalizeSymbol(u.searchParams.get('symbol'));
+      const kind = u.searchParams.get('kind') || '';
+      if (!sym) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ error: 'symbol required' })); return; }
+      const fundamentals = await fetchFundamentals(sym, kind);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ symbol: sym, fundamentals }));
       return;
     }
     if (u.pathname === '/api/scanner') {
