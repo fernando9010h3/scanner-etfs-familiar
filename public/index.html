@@ -18,6 +18,8 @@
   .bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
   .bar button{background:var(--panel2);color:var(--txt);border:1px solid #24406e;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
   .bar button.on{background:#1d4ed8;border-color:#1d4ed8}
+  .symlogo{width:20px;height:20px;border-radius:6px;background:#fff;object-fit:contain;vertical-align:-5px;padding:1px}
+  .symmono{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;background:#1d4ed8;color:#fff;font-weight:800;font-size:11px;vertical-align:-5px}
   #refreshBtn{background:#13294d;border:1px solid #24406e;color:var(--txt);border-radius:999px;padding:2px 12px;font-size:12px;cursor:pointer}
   #refreshBtn:active{background:#1d4ed8}
   #refreshBtn:disabled{opacity:.55;cursor:default}
@@ -250,7 +252,7 @@ function render(){
   if(!rows.length){ tb.innerHTML='<tr><td colspan="9">' + (data.length ? t('noResults') : (symbols.length ? t('loadingData') : t('emptyList'))) + '</td></tr>'; return; }
   for(const d of rows){
     const tr=document.createElement('tr'); tr.className='row';
-    tr.innerHTML = `<td><a class="tick" href="https://finance.yahoo.com/quote/${encodeURIComponent(d.symbol)}/chart/" target="_blank" rel="noopener">${esc(d.display)}</a> <button class="del" title="${t('remove')}">×</button></td>
+    tr.innerHTML = `<td><img class="symlogo" src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(d.symbol)}" alt="" loading="lazy"> <a class="tick" href="https://finance.yahoo.com/quote/${encodeURIComponent(d.symbol)}/chart/" target="_blank" rel="noopener">${esc(d.display)}</a> <button class="del" title="${t('remove')}">×</button></td>
       <td><span class="pill ${d.type==='ETF'?'etf':'stock'}">${esc(d.type)}</span></td>
       <td>${fmt(d.rsi,1)}</td>
       <td class="pos">${esc(posText(d))}</td>
@@ -259,6 +261,8 @@ function render(){
       <td>$${fmt(d.price)}</td>
       <td class="${d.changePct>=0?'up':'down'}">${d.changePct==null?'—':(d.changePct>=0?'+':'')+fmt(d.changePct)+'%'}</td>
       <td>${d.nivel==null?'—':d.nivel}<div class="lvl"><div style="width:${d.nivel||0}%"></div></div></td>`;
+    const logoImg = tr.querySelector('.symlogo');
+    if(logoImg) logoImg.addEventListener('error', ()=>{ const m=document.createElement('span'); m.className='symmono'; m.textContent=(d.display||'?').charAt(0); logoImg.replaceWith(m); });
     tr.querySelector('a').addEventListener('click', e=>e.stopPropagation());
     tr.querySelector('.del').addEventListener('click', e=>{ e.stopPropagation(); symbols = symbols.filter(s=>s!==d.symbol); localStorage.setItem('scannerSymbols', JSON.stringify(symbols)); load(); });
     tr.addEventListener('click', ()=>{ openSym = openSym===d.symbol?null:d.symbol; render(); });
