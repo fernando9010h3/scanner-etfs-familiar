@@ -55,6 +55,8 @@
   .nofav{background:linear-gradient(135deg, rgba(244,63,94,.62), rgba(190,18,60,.40))}
   .inter{background:linear-gradient(135deg, rgba(245,158,11,.66), rgba(180,83,9,.42))}
   .crypto{background:linear-gradient(135deg, rgba(247,147,26,.70), rgba(214,116,0,.46))}
+  .near200{display:inline-block;margin-top:4px;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:700;color:#fcd34d;border:1px solid rgba(252,211,77,.55);background:rgba(245,158,11,.18)}
+  .near200hl{color:#fcd34d;font-weight:700}
   a.tick{color:#fff;font-weight:800;text-decoration:none}
   a.tick:hover{text-decoration:underline}
   .pos{color:var(--mut);font-size:12px}
@@ -79,6 +81,7 @@
     th{font-size:10px}
     .pos{font-size:10px}
     .pill{font-size:9px;padding:2px 5px}
+    .near200{font-size:9px;padding:2px 5px}
     h1{font-size:18px}
   }
 </style>
@@ -99,6 +102,7 @@
     <button data-f="50" data-i18n="f50">Sobre SMA 50</button>
     <button data-f="100" data-i18n="f100">Sobre SMA 100</button>
     <button data-f="200" data-i18n="f200">Sobre SMA 200</button>
+    <button data-f="near200" data-i18n="fNear200">🎯 Cerca SMA 200</button>
   </div>
   <div class="add">
     <div class="addwrap">
@@ -122,13 +126,14 @@
     <h2 data-i18n="howTitle">Cómo leer el scanner</h2>
     <p><strong data-i18n="howSignalWord">Señal</strong> <span data-i18n="howSignalIntro">(solo estas tres etiquetas, con esta regla exacta):</span></p>
     <ul>
-      <li><strong data-i18n="sigFav">Favorable</strong><span data-i18n="howFav">: precio debajo de TODAS las SMA, o RSI ≤ 35.</span></li>
-      <li><strong data-i18n="sigNo">No Favorable</strong><span data-i18n="howNo">: precio sobre 3 o más SMA, o RSI ≥ 65.</span></li>
+      <li><strong data-i18n="sigFav">Favorable</strong><span data-i18n="howFav">: precio debajo de TODAS las SMA.</span></li>
+      <li><strong data-i18n="sigNo">No Favorable</strong><span data-i18n="howNo">: precio sobre 3 o más SMA.</span></li>
       <li><strong data-i18n="sigInt">Interesante</strong><span data-i18n="howInt">: todo lo demás.</span></li>
     </ul>
     <p><strong data-i18n="howLevelWord">Nivel 0–100</strong><span data-i18n="howLevel">: Nivel = redondeo de [ 0,6 × (100 − RSI 14) + 0,4 × (25 × número de SMA (20/50/100/200) que están por encima del precio) ], limitado entre 0 y 100. Un Nivel más alto combina RSI bajo (menos extendido) con precio por debajo de más SMA.</span></p>
     <p data-i18n="howRest">RSI 14 se calcula con el método Wilder sobre los cierres diarios. Posición compara el precio con las SMA 20/50/100/200 y muestra la distancia en el detalle de cada fila. Días en señal cuenta los días de mercado seguidos con la misma señal actual, recalculando la señal día por día. Toca una fila para ver su gráfico de 6 meses con SMA 20/50 y su rango de 52 semanas. Toca el Ticket para abrir su gráfica avanzada en Yahoo Finance.</p>
     <p data-i18n="howEtf"></p>
+    <p data-i18n="howNear"></p>
   </section>
   <footer data-i18n="footer">Herramienta informativa y educativa. No es asesoría financiera.</footer>
 </main>
@@ -143,6 +148,8 @@ const I18N = {
   es: {
     subFamily:'Versión familiar', auto:'Se actualiza sola cada 15 minutos', loading:'Cargando…',
     fAll:'Todos', f20:'Sobre SMA 20', f50:'Sobre SMA 50', f100:'Sobre SMA 100', f200:'Sobre SMA 200',
+    fNear200:'🎯 Cerca SMA 200', nearAbove:'Casi en zona premium', nearBelow:'Saliendo de zona premium', nearAt:'En zona premium',
+    howNear:'🎯 Cerca SMA 200: marca los símbolos a menos de 1% de su SMA 200. Si el precio está por encima, dice "Casi en zona premium" (está por entrar al punto 1 del curso); si está por debajo, dice "Saliendo de zona premium". Usa el filtro "🎯 Cerca SMA 200" para ver solo esos símbolos.',
     add:'Agregar', phAdd:'Busca por nombre o ticket (ej: Tesla, VOO)', refresh:'↻ Actualizar',
     heatmap:'🗺️ Mapa de calor', exportImg:'📸 Imagen', needSymbols:'Primero agrega símbolos a tu lista.',
     fundTitle:'📚 Fundamentales del curso', fundLoading:'Cargando fundamentales…', fundNone:'Sin datos fundamentales disponibles por ahora.',
@@ -180,6 +187,8 @@ const I18N = {
   en: {
     subFamily:'Family version', auto:'Updates automatically every 15 minutes', loading:'Loading…',
     fAll:'All', f20:'Above SMA 20', f50:'Above SMA 50', f100:'Above SMA 100', f200:'Above SMA 200',
+    fNear200:'🎯 Near SMA 200', nearAbove:'Almost in premium zone', nearBelow:'Leaving premium zone', nearAt:'In premium zone',
+    howNear:'🎯 Near SMA 200: flags symbols within 1% of their SMA 200. If the price is above, it reads "Almost in premium zone" (about to enter the course\'s point 1); if below, "Leaving premium zone". Use the "🎯 Near SMA 200" filter to see only those symbols.',
     add:'Add', phAdd:'Search by name or ticker (e.g. Tesla, VOO)', refresh:'↻ Refresh',
     heatmap:'🗺️ Heatmap', exportImg:'📸 Image', needSymbols:'Add symbols to your list first.',
     fundTitle:'📚 Course fundamentals', fundLoading:'Loading fundamentals…', fundNone:'No fundamental data available right now.',
@@ -279,6 +288,10 @@ async function load(force){
 }
 
 function signalClass(s){return s==='Favorable'?'fav':(s==='No Favorable'?'nofav':'inter')}
+// A menos de 1% de la SMA 200 (distancia positiva = precio por encima).
+// Devuelve la distancia si está en la banda, null si no.
+function near200(d){ const v = d.distancesPct && d.distancesPct[200]; return v != null && Math.abs(v) < 1 ? v : null; }
+function near200Text(d){ const v = near200(d); if(v == null) return ''; return v > 0 ? t('nearAbove') : (v < 0 ? t('nearBelow') : t('nearAt')); }
 // Foto ETF.com 24/10/2026 (con sesión): holdings, distribución, PER del ETF,
 // rendimientos y calificación Fit. Sin vía pública automática: se refresca a mano.
 const ETF_COM = {
@@ -379,12 +392,12 @@ function chartSVG(d){
   const X=i=>P+i*(W-2*P)/(s.closes.length-1), Y=v=>H-P-((v-min)/(max-min))*(H-2*P);
   const line=(arr,color)=>{let p='';arr.forEach((v,i)=>{if(v!=null)p+=(p?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)+' '});return `<path d="${p}" fill="none" stroke="${color}" stroke-width="1.6"/>`};
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${line(s.closes,'#e8eef7')}${line(s.sma20,'#38bdf8')}${line(s.sma50,'#f59e0b')}</svg>
-  <div class="legend">${t('chartTitle')} <span class="dot" style="background:#e8eef7"></span>${t('priceW')} <span class="dot" style="background:#38bdf8"></span>SMA 20 <span class="dot" style="background:#f59e0b"></span>SMA 50 · ${t('range52')} $${fmt(d.week52.low)} – $${fmt(d.week52.high)} · ${t('distSma')} — 20: ${fmt(d.distancesPct[20])}% · 50: ${fmt(d.distancesPct[50])}% · 100: ${fmt(d.distancesPct[100])}% · 200: ${fmt(d.distancesPct[200])}%</div>`;
+  <div class="legend">${t('chartTitle')} <span class="dot" style="background:#e8eef7"></span>${t('priceW')} <span class="dot" style="background:#38bdf8"></span>SMA 20 <span class="dot" style="background:#f59e0b"></span>SMA 50 · ${t('range52')} $${fmt(d.week52.low)} – $${fmt(d.week52.high)} · ${t('distSma')} — 20: ${fmt(d.distancesPct[20])}% · 50: ${fmt(d.distancesPct[50])}% · 100: ${fmt(d.distancesPct[100])}% · ${near200(d) != null ? `<span class="near200hl">200: ${fmt(d.distancesPct[200])}% 🎯</span>` : `200: ${fmt(d.distancesPct[200])}%`}</div>`;
 }
 
 function render(){
   const tb = $('#tbody'); if(!tb) return; tb.innerHTML='';
-  const rows = data.filter(d => filter==='all' || (d.distancesPct && d.distancesPct[filter] != null && d.distancesPct[filter] > 0));
+  const rows = data.filter(d => filter==='all' ? true : filter==='near200' ? (near200(d) != null) : (d.distancesPct && d.distancesPct[filter] != null && d.distancesPct[filter] > 0));
   if(!rows.length){ tb.innerHTML='<tr><td colspan="9">' + (data.length ? t('noResults') : (symbols.length ? t('loadingData') : t('emptyList'))) + '</td></tr>'; return; }
   for(const d of rows){
     const tr=document.createElement('tr'); tr.className='row';
@@ -395,7 +408,7 @@ function render(){
       <td><span class="pill ${d.type==='ETF'?'etf':(d.type==='Crypto'?'crypto':'stock')}">${esc(d.type)}</span></td>
       <td>${fmt(d.rsi,1)}</td>
       <td class="pos">${esc(posText(d))}</td>
-      <td><span class="pill ${signalClass(d.signal)}">${esc(sigText(d.signal))}</span></td>
+      <td><span class="pill ${signalClass(d.signal)}">${esc(sigText(d.signal))}</span>${near200(d) != null ? `<div class="near200">🎯 ${esc(near200Text(d))}</div>` : ''}</td>
       <td>${d.daysInSignal==null?'—':d.daysInSignal}</td>
       <td>$${fmtPrice(d.price)}</td>
       <td class="${d.changePct>=0?'up':'down'}">${d.changePct==null?'—':(d.changePct>=0?'+':'')+fmt(d.changePct)+'%'}</td>
