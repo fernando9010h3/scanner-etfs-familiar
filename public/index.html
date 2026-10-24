@@ -150,8 +150,10 @@ const I18N = {
     fundFilter:'Filtro del curso (ROA/ROE/ROI ≥ 5%):', fundPass:'✅ pasa', fundFail:'⚠️ no pasa',
     etfTitle:'Datos ETF.com · 5 puntos del curso', etfHoldings:'Top holdings', etfTop10:'Peso top 10', etfDist:'Distribución', etfPer:'PER del ETF', etfRet1y:'Rend. 1 año', etfRet5y:'Rend. 5 años', etfFit:'Calificación Fit',
     etfNote:'Foto del 24/10/2026 · Holdings al 29/09 (VOO, VTI) y al 21/10 (resto). Se refresca cuando se vuelve a consultar etf.com.',
+    etfLiveNote:'Actualizado automáticamente: rendimientos de la API pública de ETF.com y holdings de StockAnalysis. La calificación Fit es propietaria de ETF.com y solo existe como foto.',
+    etfRet1m:'Rend. 1 mes', etfRetYtd:'Rend. año', etfFitPhoto:'foto 24/10/2026', etfAsOf:'al',
     etfJepqNote:'Ojo: el 11.48% de JEPQ es distribución de su estrategia con opciones, no un dividendo tradicional; aún no tiene rendimiento a 5 años en etf.com.',
-    howEtf:'En los ETFs con datos, el detalle incluye además un bloque ETF.com con los 5 puntos del curso (holdings, rendimiento, calificación, expense ratio y dividendo) como foto fechada.',
+    howEtf:'En los ETFs, el detalle incluye además un bloque ETF.com con los 5 puntos del curso: holdings y rendimientos se actualizan solos; la calificación Fit es foto del 24/10/2026.',
     supertrend:'Supertrend', stUp:'Alcista', stDown:'Bajista',
     per:'PER', perFwd:'PER futuro', roa:'ROA', roe:'ROE', roi:'ROI', margin:'Margen', div:'Dividendo', expense:'Expense ratio', beta:'Beta', mcap:'Cap. mercado', holdings:'Holdings', target:'Precio objetivo',
     notFound:'No se encontró: ', notFoundHint:' — escribe el nombre de la empresa y elige de la lista que aparece.',
@@ -184,8 +186,10 @@ const I18N = {
     fundFilter:'Course filter (ROA/ROE/ROI ≥ 5%):', fundPass:'✅ passes', fundFail:'⚠️ fails',
     etfTitle:'ETF.com data · course 5 points', etfHoldings:'Top holdings', etfTop10:'Top 10 weight', etfDist:'Distribution', etfPer:'ETF P/E', etfRet1y:'1-yr return', etfRet5y:'5-yr return', etfFit:'Fit grade',
     etfNote:'Snapshot 10/24/2026 · Holdings as of 09/29 (VOO, VTI) and 10/21 (rest). Refreshed when etf.com is consulted again.',
+    etfLiveNote:'Auto-updated: returns from the public ETF.com API and holdings from StockAnalysis. The Fit grade is proprietary to ETF.com and only exists as a snapshot.',
+    etfRet1m:'1-mo return', etfRetYtd:'YTD return', etfFitPhoto:'snapshot 10/24/2026', etfAsOf:'as of',
     etfJepqNote:'Note: JEPQ\'s 11.48% is distribution from its options strategy, not a traditional dividend; it has no 5-year return on etf.com yet.',
-    howEtf:'For ETFs with data, the detail also includes an ETF.com block with the course\'s 5 points (holdings, performance, rating, expense ratio and dividend) as a dated snapshot.',
+    howEtf:'For ETFs, the detail also includes an ETF.com block with the course\'s 5 points: holdings and returns update on their own; the Fit grade is a snapshot from 10/24/2026.',
     supertrend:'Supertrend', stUp:'Bullish', stDown:'Bearish',
     per:'P/E', perFwd:'Forward P/E', roa:'ROA', roe:'ROE', roi:'ROI', margin:'Margin', div:'Dividend', expense:'Expense ratio', beta:'Beta', mcap:'Market cap', holdings:'Holdings', target:'Price target',
     notFound:'Not found: ', notFoundHint:' — type the company name and pick from the list that appears.',
@@ -287,6 +291,30 @@ const ETF_COM = {
   SCHG:{count:187,top10:60.69,top:[['NVDA',12.11],['AAPL',11.98],['MSFT',9.12],['AMZN',5.79],['GOOGL',4.48]],dist:0.39,per:32.96,r1y:9.41,r5y:12.79,fit:'B'}
 };
 function etfBlock(d){
+  // En vivo primero (API pública ETF.com + StockAnalysis); si falla, foto 24/10/2026.
+  const live = d._etfcom;
+  if (live === undefined) {
+    d._etfcom = null;
+    fetch('/api/etfcom?symbol=' + encodeURIComponent(d.symbol))
+      .then(r=>r.json()).then(j=>{ d._etfcom = (j.etfcom && (j.etfcom.top || j.etfcom.r1y != null)) ? j.etfcom : {}; render(); })
+      .catch(()=>{ d._etfcom = {}; render(); });
+    return '<div><b>' + t('etfTitle') + '</b></div><div>' + t('fundLoading') + '</div>';
+  }
+  if (live && (live.top || live.r1y != null)) {
+    let s = '<div><b>' + t('etfTitle') + '</b></div><div class="grid">';
+    if (live.top) s += '<span>' + t('etfHoldings') + ': <b>' + live.top.slice(0,5).map(x=>esc(x[0])+' '+x[1]+'%').join(' · ') + '</b></span>';
+    if (live.count) s += '<span>' + t('holdings') + ': <b>' + live.count + '</b></span>';
+    if (live.top10 != null) s += '<span>' + t('etfTop10') + ': <b>' + live.top10 + '%</b></span>';
+    if (live.r1m != null) s += '<span>' + t('etfRet1m') + ': <b>' + live.r1m + '%</b></span>';
+    if (live.rYtd != null) s += '<span>' + t('etfRetYtd') + ': <b>' + live.rYtd + '%</b></span>';
+    if (live.r1y != null) s += '<span>' + t('etfRet1y') + ': <b>' + live.r1y + '%</b></span>';
+    if (live.r5y != null) s += '<span>' + t('etfRet5y') + ': <b>' + live.r5y + '%</b></span>';
+    const fit = ETF_COM[d.symbol] && ETF_COM[d.symbol].fit;
+    if (fit) s += '<span>' + t('etfFit') + ': <b>' + fit + ' (' + t('etfFitPhoto') + ')</b></span>';
+    s += '</div><div>' + t('etfLiveNote') + (live.asOf ? ' (' + t('etfAsOf') + ' ' + esc(live.asOf) + ')' : '') + '</div>';
+    if (d.symbol === 'JEPQ') s += '<div>' + t('etfJepqNote') + '</div>';
+    return s;
+  }
   const e = ETF_COM[d.symbol]; if(!e) return '';
   let s = '<div><b>' + t('etfTitle') + '</b></div><div class="grid">';
   s += '<span>' + t('etfHoldings') + ': <b>' + e.top.map(x=>esc(x[0])+' '+x[1]+'%').join(' · ') + '</b></span>';
