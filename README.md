@@ -29,6 +29,8 @@ Abre http://localhost:3000 — el puerto se puede cambiar con la variable `PORT`
   - **Interesante**: todo lo demás.
 - **Días en señal**: racha de días de mercado consecutivos terminando hoy con la misma señal actual, recalculando la señal día por día (solo SMA de cada día con los datos hasta ese día).
 - **🎯 Cerca SMA 200**: marca en la fila y filtro para los símbolos a menos de 1% de su SMA 200. Si el precio está por encima, la marca dice «Casi en zona premium» (por entrar al punto 1 del curso); si está por debajo, «Saliendo de zona premium». En el detalle, la distancia a la SMA 200 se resalta cuando está en la banda.
+- **Próximo punto**: columna que dice cuánto tiene que caer el precio para tocar la siguiente media del curso, en orden 20 → 50 → 100 → 200 (ej: «−3,20% → SMA 20 (Punto 4)»). Si ya está debajo de todas, dice «En Punto 1 · zona premium». Es el punto OBJETIVO, distinto de la marca 🎯 (que solo mira la cercanía a la SMA 200).
+- **Mini-gráfico**: sparkline de 6 meses en cada fila (serie de cierres que ya trae el servidor); verde si subió en el periodo, roja si bajó.
 - **Rango 52 semanas** y serie de 6 meses (cierres + SMA 20/50) para el gráfico del detalle de cada fila.
 
 ## Fórmula del Nivel 0–100
