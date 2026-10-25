@@ -60,6 +60,9 @@
   a.tick{color:#fff;font-weight:800;text-decoration:none}
   a.tick:hover{text-decoration:underline}
   .pos{color:var(--mut);font-size:12px}
+  .nextpt{font-size:12px;color:var(--mut)}
+  .nextpt b{color:var(--green)}
+  .spark{width:100%;height:28px;display:block}
   .up{color:var(--green)} .down{color:var(--red)}
   .lvl{background:#1c232d;border-radius:6px;height:8px;margin-top:4px;overflow:hidden}
   .lvl>div{background:linear-gradient(90deg,#38bdf8,#22c55e);height:100%}
@@ -80,6 +83,7 @@
     th,td{font-size:11px;padding:6px 3px}
     th{font-size:10px}
     .pos{font-size:10px}
+    .nextpt{font-size:10px}
     .pill{font-size:9px;padding:2px 5px}
     .near200{font-size:9px;padding:2px 5px}
     h1{font-size:18px}
@@ -115,11 +119,12 @@
   <p class="sub" id="emptyHint" hidden style="font-size:14px"></p>
   <table>
     <thead><tr>
-      <th style="width:13%" data-i18n="thTicket">Ticket</th><th style="width:9%" data-i18n="thType">Tipo</th><th style="width:8%">RSI 14</th>
-      <th style="width:22%" data-i18n="thPos">Posición</th><th style="width:13%" data-i18n="thSignal">Señal</th><th style="width:8%" data-i18n="thDays">Días en señal</th>
-      <th style="width:10%" data-i18n="thPrice">Precio</th><th style="width:8%" data-i18n="thChange">Cambio %</th><th style="width:9%" data-i18n="thLevel">Nivel</th>
+      <th style="width:11%" data-i18n="thTicket">Ticket</th><th style="width:7%" data-i18n="thType">Tipo</th><th style="width:6%">RSI 14</th>
+      <th style="width:15%" data-i18n="thPos">Posición</th><th style="width:11%" data-i18n="thSignal">Señal</th><th style="width:7%" data-i18n="thDays">Días en señal</th>
+      <th style="width:8%" data-i18n="thPrice">Precio</th><th style="width:7%" data-i18n="thChange">Cambio %</th><th style="width:6%" data-i18n="thLevel">Nivel</th>
+      <th style="width:10%" data-i18n="thNext">Próximo punto</th><th style="width:12%" data-i18n="thChart">Gráfico</th>
     </tr></thead>
-    <tbody id="tbody"><tr><td colspan="9" id="loadingCell">Cargando datos…</td></tr></tbody>
+    <tbody id="tbody"><tr><td colspan="11" id="loadingCell">Cargando datos…</td></tr></tbody>
   </table>
 
   <section class="info">
@@ -134,6 +139,7 @@
     <p data-i18n="howRest">RSI 14 se calcula con el método Wilder sobre los cierres diarios. Posición compara el precio con las SMA 20/50/100/200 y muestra la distancia en el detalle de cada fila. Días en señal cuenta los días de mercado seguidos con la misma señal actual, recalculando la señal día por día. Toca una fila para ver su gráfico de 6 meses con SMA 20/50 y su rango de 52 semanas. Toca el Ticket para abrir su gráfica avanzada en Yahoo Finance.</p>
     <p data-i18n="howEtf"></p>
     <p data-i18n="howNear"></p>
+    <p data-i18n="howNext"></p>
   </section>
   <footer data-i18n="footer">Herramienta informativa y educativa. No es asesoría financiera.</footer>
 </main>
@@ -150,6 +156,8 @@ const I18N = {
     fAll:'Todos', f20:'Sobre SMA 20', f50:'Sobre SMA 50', f100:'Sobre SMA 100', f200:'Sobre SMA 200',
     fNear200:'🎯 Cerca SMA 200', nearAbove:'Casi en zona premium', nearBelow:'Saliendo de zona premium', nearAt:'En zona premium',
     howNear:'🎯 Cerca SMA 200: marca los símbolos a menos de 1% de su SMA 200. Si el precio está por encima, dice "Casi en zona premium" (está por entrar al punto 1 del curso); si está por debajo, dice "Saliendo de zona premium". Usa el filtro "🎯 Cerca SMA 200" para ver solo esos símbolos.',
+    thNext:'Próximo punto', thChart:'Gráfico', point:'Punto', atPoint1:'En Punto 1 · zona premium',
+    howNext:'Próximo punto: cuánto tiene que caer el precio para tocar la siguiente media del curso, en orden 20 → 50 → 100 → 200. Si ya está debajo de todas, dice "En Punto 1 · zona premium" (el punto más profundo). Es distinto de la marca 🎯, que solo mira la cercanía a la SMA 200.',
     add:'Agregar', phAdd:'Busca por nombre o ticket (ej: Tesla, VOO)', refresh:'↻ Actualizar',
     heatmap:'🗺️ Mapa de calor', exportImg:'📸 Imagen', needSymbols:'Primero agrega símbolos a tu lista.',
     fundTitle:'📚 Fundamentales del curso', fundLoading:'Cargando fundamentales…', fundNone:'Sin datos fundamentales disponibles por ahora.',
@@ -189,6 +197,8 @@ const I18N = {
     fAll:'All', f20:'Above SMA 20', f50:'Above SMA 50', f100:'Above SMA 100', f200:'Above SMA 200',
     fNear200:'🎯 Near SMA 200', nearAbove:'Almost in premium zone', nearBelow:'Leaving premium zone', nearAt:'In premium zone',
     howNear:'🎯 Near SMA 200: flags symbols within 1% of their SMA 200. If the price is above, it reads "Almost in premium zone" (about to enter the course\'s point 1); if below, "Leaving premium zone". Use the "🎯 Near SMA 200" filter to see only those symbols.',
+    thNext:'Next point', thChart:'Chart', point:'Point', atPoint1:'At Point 1 · premium zone',
+    howNext:'Next point: how far the price must fall to touch the next course average, in order 20 → 50 → 100 → 200. If it is already below all of them, it reads "At Point 1 · premium zone" (the deepest point). Unlike the 🎯 mark, which only looks at nearness to the SMA 200.',
     add:'Add', phAdd:'Search by name or ticker (e.g. Tesla, VOO)', refresh:'↻ Refresh',
     heatmap:'🗺️ Heatmap', exportImg:'📸 Image', needSymbols:'Add symbols to your list first.',
     fundTitle:'📚 Course fundamentals', fundLoading:'Loading fundamentals…', fundNone:'No fundamental data available right now.',
@@ -292,6 +302,38 @@ function signalClass(s){return s==='Favorable'?'fav':(s==='No Favorable'?'nofav'
 // Devuelve la distancia si está en la banda, null si no.
 function near200(d){ const v = d.distancesPct && d.distancesPct[200]; return v != null && Math.abs(v) < 1 ? v : null; }
 function near200Text(d){ const v = near200(d); if(v == null) return ''; return v > 0 ? t('nearAbove') : (v < 0 ? t('nearBelow') : t('nearAt')); }
+// Próximo punto del curso: la siguiente media en la secuencia 20 → 50 → 100 → 200
+// que el precio todavía tiene por encima (distancia positiva = precio por encima).
+// null = ya está debajo de todas (Punto 1, el más profundo); undefined = sin datos.
+function nextPoint(d){
+  if(!d.distancesPct) return undefined;
+  const order = [[20,4],[50,3],[100,2],[200,1]];
+  for(const [p,n] of order){
+    const v = d.distancesPct[p];
+    if(v != null && v > 0) return {p, n, dist: v};
+  }
+  const any = order.some(([p]) => d.distancesPct[p] != null);
+  return any ? null : undefined;
+}
+function nextPointHTML(d){
+  const np = nextPoint(d);
+  if(np === undefined) return '—';
+  if(np === null) return '<span class="nextpt"><b>' + t('atPoint1') + '</b></span>';
+  return '<span class="nextpt">−' + fmt(np.dist) + '% → SMA ' + np.p + ' (' + t('point') + ' ' + np.n + ')</span>';
+}
+// Mini-gráfico de 6 meses: línea de cierres; verde si subió en el periodo, roja si bajó.
+function sparkSVG(d){
+  const c = d.series6m && d.series6m.closes;
+  if(!c || c.length < 2) return '—';
+  const W=100,H=28,P=2;
+  let min=Math.min(...c), max=Math.max(...c);
+  if(max===min){ max+=1; min-=1; }
+  const X=i=>P+i*(W-2*P)/(c.length-1), Y=v=>H-P-((v-min)/(max-min))*(H-2*P);
+  let p='';
+  c.forEach((v,i)=>{ p += (p?'L':'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1) + ' '; });
+  const col = c[c.length-1] >= c[0] ? '#22c55e' : '#ef4444';
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${p}" fill="none" stroke="${col}" stroke-width="1.8"/></svg>`;
+}
 // Foto ETF.com 24/10/2026 (con sesión): holdings, distribución, PER del ETF,
 // rendimientos y calificación Fit. Sin vía pública automática: se refresca a mano.
 const ETF_COM = {
@@ -398,7 +440,7 @@ function chartSVG(d){
 function render(){
   const tb = $('#tbody'); if(!tb) return; tb.innerHTML='';
   const rows = data.filter(d => filter==='all' ? true : filter==='near200' ? (near200(d) != null) : (d.distancesPct && d.distancesPct[filter] != null && d.distancesPct[filter] > 0));
-  if(!rows.length){ tb.innerHTML='<tr><td colspan="9">' + (data.length ? t('noResults') : (symbols.length ? t('loadingData') : t('emptyList'))) + '</td></tr>'; return; }
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="11">' + (data.length ? t('noResults') : (symbols.length ? t('loadingData') : t('emptyList'))) + '</td></tr>'; return; }
   for(const d of rows){
     const tr=document.createElement('tr'); tr.className='row';
     const logoUrl = d.type==='Crypto'
@@ -412,7 +454,9 @@ function render(){
       <td>${d.daysInSignal==null?'—':d.daysInSignal}</td>
       <td>$${fmtPrice(d.price)}</td>
       <td class="${d.changePct>=0?'up':'down'}">${d.changePct==null?'—':(d.changePct>=0?'+':'')+fmt(d.changePct)+'%'}</td>
-      <td>${d.nivel==null?'—':d.nivel}<div class="lvl"><div style="width:${d.nivel||0}%"></div></div></td>`;
+      <td>${d.nivel==null?'—':d.nivel}<div class="lvl"><div style="width:${d.nivel||0}%"></div></div></td>
+      <td>${nextPointHTML(d)}</td>
+      <td>${sparkSVG(d)}</td>`;
     const logoImg = tr.querySelector('.symlogo');
     if(logoImg) logoImg.addEventListener('error', ()=>{ const m=document.createElement('span'); m.className='symmono'; m.textContent=(d.display||'?').charAt(0); logoImg.replaceWith(m); });
     tr.querySelector('a').addEventListener('click', e=>e.stopPropagation());
@@ -421,7 +465,7 @@ function render(){
     tb.appendChild(tr);
     if(openSym===d.symbol){
       const det=document.createElement('tr'); det.className='detail';
-      det.innerHTML = `<td colspan="9"><strong>${esc(d.display)}</strong> — ${esc(d.name)} · ${t('lastClose')}: ${esc(d.lastDate)} · ${d.closesCount} ${t('closes')}${chartSVG(d)}${fundBlock(d)}</td>`;
+      det.innerHTML = `<td colspan="11"><strong>${esc(d.display)}</strong> — ${esc(d.name)} · ${t('lastClose')}: ${esc(d.lastDate)} · ${d.closesCount} ${t('closes')}${chartSVG(d)}${fundBlock(d)}</td>`;
       tb.appendChild(det);
     }
   }
