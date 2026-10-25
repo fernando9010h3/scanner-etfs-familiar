@@ -401,6 +401,45 @@ async function fetchEtfcom(symbol) {
   return data;
 }
 
+// ---------- rendimiento histórico anualizado (CAGR) para la calculadora ----------
+// CAGR a 5 años (o desde que existe el activo, si tiene al menos 1 año de historia)
+// con precios ajustados (dividendos y splits). Un activo con menos de 1 año queda
+// con cagr null: anualizar tan poco tiempo no dice nada útil. Caché 6 h.
+const CAGR_CACHE_MS = 6 * 60 * 60 * 1000;
+const cagrCache = new Map();
+async function fetchCagr(symbol) {
+  const hit = cagrCache.get(symbol);
+  if (hit && Date.now() - hit.at < CAGR_CACHE_MS) return hit.data;
+  const data = { symbol, cagr: null, years: null, asOf: null };
+  const url = (host) => `https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5y&interval=1d`;
+  const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/json' } };
+  for (const host of ['query1', 'query2']) {
+    try {
+      const r = await fetch(url(host), opts);
+      if (!r.ok) continue;
+      const j = await r.json();
+      const res = j && j.chart && j.chart.result && j.chart.result[0];
+      if (!res) continue;
+      const q = (res.indicators && res.indicators.quote && res.indicators.quote[0]) || {};
+      const adj = (res.indicators && res.indicators.adjclose && res.indicators.adjclose[0] && res.indicators.adjclose[0].adjclose) || [];
+      const raw = adj.length ? adj : (q.close || []);
+      const ts = res.timestamp || [];
+      const closes = [], stamps = [];
+      for (let i = 0; i < raw.length; i++) {
+        if (raw[i] != null && isFinite(raw[i]) && ts[i]) { closes.push(raw[i]); stamps.push(ts[i]); }
+      }
+      if (closes.length < 2) continue;
+      const years = ((stamps[stamps.length - 1] - stamps[0]) / 86400) / 365.25;
+      data.years = round2(years);
+      data.asOf = new Date(stamps[stamps.length - 1] * 1000).toISOString().slice(0, 10);
+      if (years >= 1) data.cagr = round2((Math.pow(closes[closes.length - 1] / closes[0], 1 / years) - 1) * 100);
+      break;
+    } catch (_) { /* siguiente host */ }
+  }
+  cagrCache.set(symbol, { at: Date.now(), data });
+  return data;
+}
+
 async function getSymbol(symbol, force) {
   if (!force) {
     const hit = cache.get(symbol);
@@ -459,6 +498,14 @@ const server = http.createServer(async (req, res) => {
       const etfcom = await fetchEtfcom(sym);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({ symbol: sym, etfcom }));
+      return;
+    }
+    if (u.pathname === '/api/cagr') {
+      const q = u.searchParams.get('symbols');
+      const syms = q ? [...new Set(q.split(',').map(normalizeSymbol).filter(Boolean))].slice(0, 30) : [];
+      const results = await Promise.all(syms.map(fetchCagr));
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ symbols: results }));
       return;
     }
     if (u.pathname === '/api/scanner') {
