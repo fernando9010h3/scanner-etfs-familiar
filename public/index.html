@@ -57,6 +57,8 @@
   .crypto{background:linear-gradient(135deg, rgba(247,147,26,.70), rgba(214,116,0,.46))}
   .near200{display:inline-block;margin-top:4px;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:700;color:#fcd34d;border:1px solid rgba(252,211,77,.55);background:rgba(245,158,11,.18)}
   .near200hl{color:#fcd34d;font-weight:700}
+  .punto{display:inline-block;margin-top:4px;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:700;color:#c4b5fd;border:1px solid rgba(196,181,253,.55);background:rgba(139,92,246,.18)}
+  .punto.none{color:var(--mut);border-color:#334155;background:rgba(51,65,85,.25)}
   a.tick{color:#fff;font-weight:800;text-decoration:none}
   a.tick:hover{text-decoration:underline}
   .pos{color:var(--mut);font-size:12px}
@@ -86,6 +88,7 @@
     .nextpt{font-size:10px}
     .pill{font-size:9px;padding:2px 5px}
     .near200{font-size:9px;padding:2px 5px}
+    .punto{font-size:9px;padding:2px 5px}
     h1{font-size:18px}
   }
 </style>
@@ -140,6 +143,7 @@
     <p data-i18n="howEtf"></p>
     <p data-i18n="howNear"></p>
     <p data-i18n="howNext"></p>
+    <p data-i18n="howPunto"></p>
   </section>
   <footer data-i18n="footer">Herramienta informativa y educativa. No es asesoría financiera.</footer>
 </main>
@@ -158,6 +162,8 @@ const I18N = {
     howNear:'🎯 Cerca SMA 200: marca los símbolos a menos de 1% de su SMA 200. Si el precio está por encima, dice "Casi en zona premium" (está por entrar al punto 1 del curso); si está por debajo, dice "Saliendo de zona premium". Usa el filtro "🎯 Cerca SMA 200" para ver solo esos símbolos.',
     thNext:'Próximo punto', thChart:'Gráfico', point:'Punto', atPoint1:'En Punto 1 · zona premium',
     howNext:'Próximo punto: cuánto tiene que caer el precio para tocar la siguiente media del curso, en orden 20 → 50 → 100 → 200. Si ya está debajo de todas, dice "En Punto 1 · zona premium" (el punto más profundo). Es distinto de la marca 🎯, que solo mira la cercanía a la SMA 200.',
+    noPoint:'Sin punto',
+    howPunto:'Insignia Punto del profesor: en qué punto del curso está el símbolo ahora — Punto 1 si está debajo de todas las medias (zona premium), Punto 2 si está debajo de la 100 pero sobre la 200, Punto 3 si está debajo de la 50 pero sobre la 100, Punto 4 si está debajo de la 20 pero sobre la 50; si está sobre todas, dice "Sin punto". Es el punto ACTUAL, distinto de la columna "Próximo punto", que dice cuál viene después.',
     add:'Agregar', phAdd:'Busca por nombre o ticket (ej: Tesla, VOO)', refresh:'↻ Actualizar',
     heatmap:'🗺️ Mapa de calor', exportImg:'📸 Imagen', needSymbols:'Primero agrega símbolos a tu lista.',
     fundTitle:'📚 Fundamentales del curso', fundLoading:'Cargando fundamentales…', fundNone:'Sin datos fundamentales disponibles por ahora.',
@@ -199,6 +205,8 @@ const I18N = {
     howNear:'🎯 Near SMA 200: flags symbols within 1% of their SMA 200. If the price is above, it reads "Almost in premium zone" (about to enter the course\'s point 1); if below, "Leaving premium zone". Use the "🎯 Near SMA 200" filter to see only those symbols.',
     thNext:'Next point', thChart:'Chart', point:'Point', atPoint1:'At Point 1 · premium zone',
     howNext:'Next point: how far the price must fall to touch the next course average, in order 20 → 50 → 100 → 200. If it is already below all of them, it reads "At Point 1 · premium zone" (the deepest point). Unlike the 🎯 mark, which only looks at nearness to the SMA 200.',
+    noPoint:'No point',
+    howPunto:'Teacher\'s point badge: which course point the symbol is at right now — Point 1 if it is below all averages (premium zone), Point 2 if below the 100 but above the 200, Point 3 if below the 50 but above the 100, Point 4 if below the 20 but above the 50; if it is above all of them, it reads "No point". It is the CURRENT point, unlike the "Next point" column, which says which one comes next.',
     add:'Add', phAdd:'Search by name or ticker (e.g. Tesla, VOO)', refresh:'↻ Refresh',
     heatmap:'🗺️ Heatmap', exportImg:'📸 Image', needSymbols:'Add symbols to your list first.',
     fundTitle:'📚 Course fundamentals', fundLoading:'Loading fundamentals…', fundNone:'No fundamental data available right now.',
@@ -321,7 +329,30 @@ function nextPointHTML(d){
   if(np === null) return '<span class="nextpt"><b>' + t('atPoint1') + '</b></span>';
   return '<span class="nextpt">−' + fmt(np.dist) + '% → SMA ' + np.p + ' (' + t('point') + ' ' + np.n + ')</span>';
 }
-// Mini-gráfico de 6 meses: línea de cierres; verde si subió en el periodo, roja si bajó.
+// Insignia Punto del profesor: en qué punto del curso está el símbolo AHORA.
+// Se revisa del más profundo al menos profundo: debajo de todas = Punto 1;
+// debajo de la 100 pero sobre la 200 = Punto 2; debajo de la 50 pero sobre la
+// 100 = Punto 3; debajo de la 20 pero sobre la 50 = Punto 4; sobre todas = sin punto.
+// (Distancia positiva = precio por encima de la media; null = sin dato.)
+function puntoActual(d){
+  const v = d.distancesPct;
+  if(!v) return undefined;
+  const below = p => v[p] != null && v[p] < 0;
+  const above = p => v[p] != null && v[p] > 0;
+  if(below(20) && below(50) && below(100) && below(200)) return 1;
+  if(below(100) && above(200)) return 2;
+  if(below(50) && above(100)) return 3;
+  if(below(20) && above(50)) return 4;
+  const any = [20,50,100,200].some(p => v[p] != null);
+  return any ? 0 : undefined; // 0 = sin punto
+}
+function puntoHTML(d){
+  const p = puntoActual(d);
+  if(p === undefined) return '';
+  if(p === 0) return '<div class="punto none">' + t('noPoint') + '</div>';
+  if(p === 1) return '<div class="punto">' + t('atPoint1') + '</div>';
+  return '<div class="punto">' + t('point') + ' ' + p + '</div>';
+}
 function sparkSVG(d){
   const c = d.series6m && d.series6m.closes;
   if(!c || c.length < 2) return '—';
@@ -450,7 +481,7 @@ function render(){
       <td><span class="pill ${d.type==='ETF'?'etf':(d.type==='Crypto'?'crypto':'stock')}">${esc(d.type)}</span></td>
       <td>${fmt(d.rsi,1)}</td>
       <td class="pos">${esc(posText(d))}</td>
-      <td><span class="pill ${signalClass(d.signal)}">${esc(sigText(d.signal))}</span>${near200(d) != null ? `<div class="near200">🎯 ${esc(near200Text(d))}</div>` : ''}</td>
+      <td><span class="pill ${signalClass(d.signal)}">${esc(sigText(d.signal))}</span>${near200(d) != null ? `<div class="near200">🎯 ${esc(near200Text(d))}</div>` : ''}${puntoHTML(d)}</td>
       <td>${d.daysInSignal==null?'—':d.daysInSignal}</td>
       <td>$${fmtPrice(d.price)}</td>
       <td class="${d.changePct>=0?'up':'down'}">${d.changePct==null?'—':(d.changePct>=0?'+':'')+fmt(d.changePct)+'%'}</td>
