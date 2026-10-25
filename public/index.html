@@ -79,6 +79,19 @@
   .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 4px 0 10px}
   section.info{background:var(--panel);border-radius:12px;padding:14px;margin-top:16px;font-size:14px;line-height:1.55}
   section.info h2{font-size:16px;margin:0 0 8px}
+  .calcinputs{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+  .calcinputs label{font-size:13px;color:var(--mut);display:flex;flex-direction:column;gap:4px}
+  .calcinputs input{background:var(--panel2);border:1px solid #262d38;border-radius:8px;color:var(--txt);padding:8px 10px;font-size:14px;width:160px}
+  .calcrow{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:13px}
+  .calcrow .csym{font-weight:800;min-width:70px}
+  .calcrow input[type=range]{flex:1;accent-color:#1d4ed8}
+  .calcrow .cw{width:44px;text-align:right;font-weight:700}
+  .calcrow .cret{color:var(--mut);min-width:110px;font-size:12px}
+  .calcbtn{background:#1d4ed8;color:#fff;border:0;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;margin:10px 0}
+  .calcbtn:disabled{opacity:.55;cursor:default}
+  .calcres{font-size:14px;line-height:1.6}
+  .calcres svg{width:100%;height:180px;display:block}
+  .calcnote{font-size:12px;color:var(--mut)}
   footer{color:var(--mut);font-size:12px;text-align:center;padding:14px}
   #err{color:#fca5a5;font-size:13px;min-height:16px}
   @media (max-width:640px){
@@ -130,6 +143,20 @@
     <tbody id="tbody"><tr><td colspan="11" id="loadingCell">Cargando datos…</td></tr></tbody>
   </table>
 
+  <section class="info" id="calcSec">
+    <h2 data-i18n="calcTitle">🧮 Calculadora de proyección</h2>
+    <p data-i18n="calcIntro">Arma tu mezcla con los símbolos de tu lista, pon cuánto empezarías, cuánto aportarías al mes y por cuántos años, y la calculadora proyecta el valor usando el rendimiento anual histórico de cada activo.</p>
+    <div class="calcinputs">
+      <label><span data-i18n="calcInitial">Capital inicial (USD)</span><input id="calcInitial" type="number" min="0" step="100" value="9000"></label>
+      <label><span data-i18n="calcMonthly">Aporte mensual (USD)</span><input id="calcMonthly" type="number" min="0" step="50" value="1000"></label>
+      <label><span data-i18n="calcYears">Años</span><input id="calcYears" type="number" min="1" max="40" step="1" value="8"></label>
+    </div>
+    <div id="calcRows"></div>
+    <button id="calcBtn" class="calcbtn" data-i18n="calcRun">Calcular proyección</button>
+    <div id="calcResult" class="calcres"></div>
+    <p class="calcnote" data-i18n="calcDisc">Simulación educativa: usa rendimientos históricos y no promete ganancias. El rendimiento pasado no garantiza resultados futuros. No es asesoría financiera.</p>
+  </section>
+
   <section class="info">
     <h2 data-i18n="howTitle">Cómo leer el scanner</h2>
     <p><strong data-i18n="howSignalWord">Señal</strong> <span data-i18n="howSignalIntro">(solo estas tres etiquetas, con esta regla exacta):</span></p>
@@ -144,6 +171,7 @@
     <p data-i18n="howNear"></p>
     <p data-i18n="howNext"></p>
     <p data-i18n="howPunto"></p>
+    <p data-i18n="howCalc"></p>
   </section>
   <footer data-i18n="footer">Herramienta informativa y educativa. No es asesoría financiera.</footer>
 </main>
@@ -196,7 +224,18 @@ const I18N = {
     howLevelWord:'Nivel 0–100',
     howLevel:': Nivel = redondeo de [ 0,6 × (100 − RSI 14) + 0,4 × (25 × número de SMA (20/50/100/200) que están por encima del precio) ], limitado entre 0 y 100. Un Nivel más alto combina RSI bajo (menos extendido) con precio por debajo de más SMA.',
     howRest:'RSI 14 se calcula con el método Wilder sobre los cierres diarios. Posición compara el precio con las SMA 20/50/100/200 y muestra la distancia en el detalle de cada fila. Días en señal cuenta los días de mercado seguidos con la misma señal actual, recalculando la señal día por día. Toca una fila para ver su gráfico de 6 meses con SMA 20/50 y su rango de 52 semanas. Toca el Ticket para abrir su gráfica avanzada en Yahoo Finance.',
-    footer:'Herramienta informativa y educativa. No es asesoría financiera.'
+    footer:'Herramienta informativa y educativa. No es asesoría financiera.',
+    calcTitle:'🧮 Calculadora de proyección',
+    calcIntro:'Arma tu mezcla con los símbolos de tu lista, pon cuánto empezarías, cuánto aportarías al mes y por cuántos años, y la calculadora proyecta el valor usando el rendimiento anual histórico de cada activo.',
+    calcInitial:'Capital inicial (USD)', calcMonthly:'Aporte mensual (USD)', calcYears:'Años',
+    calcRun:'Calcular proyección', calcLoadingRet:'Cargando rendimientos…',
+    calcPerYear:'%/año', calcNoHist:'sin historia',
+    calcDisc:'Simulación educativa: usa rendimientos históricos y no promete ganancias. El rendimiento pasado no garantiza resultados futuros. No es asesoría financiera.',
+    calcRate:'Tasa anual ponderada usada', calcContrib:'Total aportado', calcFinal:'Valor proyectado', calcGain:'Ganancia proyectada',
+    calcExcluded:'Sin historia suficiente y fuera del cálculo: ',
+    calcNoUsable:'Ningún símbolo de tu lista tiene historia suficiente para proyectar. Agrega ETFs o acciones con más de un año de historia.',
+    calcYear:'Año',
+    howCalc:'Calculadora de proyección: toma el rendimiento anual histórico de cada activo (CAGR a 5 años, o desde que existe si tiene al menos un año) y lo pondera según los pesos que elijas, ajustados para sumar 100%. Proyecta con interés compuesto mensual: el capital inicial y cada aporte mensual crecen a esa tasa ponderada. Los activos sin historia suficiente quedan fuera del cálculo y se avisan.'
   },
   en: {
     subFamily:'Family version', auto:'Updates automatically every 15 minutes', loading:'Loading…',
@@ -239,7 +278,18 @@ const I18N = {
     howLevelWord:'Level 0–100',
     howLevel:': Level = rounded [ 0.6 × (100 − RSI 14) + 0.4 × (25 × number of SMAs (20/50/100/200) above the price) ], clamped between 0 and 100. A higher Level combines a low RSI (less extended) with price below more SMAs.',
     howRest:'RSI 14 is calculated with the Wilder method on daily closes. Position compares the price with the SMA 20/50/100/200 and shows the distance in each row\'s detail. Days in signal counts consecutive market days with the current signal, recalculating the signal day by day. Tap a row to see its 6-month chart with SMA 20/50 and its 52-week range. Tap the Ticker to open its advanced chart on Yahoo Finance.',
-    footer:'Informational and educational tool. Not financial advice.'
+    footer:'Informational and educational tool. Not financial advice.',
+    calcTitle:'🧮 Projection calculator',
+    calcIntro:'Build your mix with the symbols on your list, enter a starting amount, a monthly contribution and a number of years, and the calculator projects the value using each asset\'s historical annual return.',
+    calcInitial:'Starting capital (USD)', calcMonthly:'Monthly contribution (USD)', calcYears:'Years',
+    calcRun:'Calculate projection', calcLoadingRet:'Loading returns…',
+    calcPerYear:'%/yr', calcNoHist:'no history',
+    calcDisc:'Educational simulation: it uses historical returns and promises no gains. Past performance does not guarantee future results. Not financial advice.',
+    calcRate:'Weighted annual rate used', calcContrib:'Total contributed', calcFinal:'Projected value', calcGain:'Projected gain',
+    calcExcluded:'Not enough history, left out of the math: ',
+    calcNoUsable:'No symbol on your list has enough history to project. Add ETFs or stocks with more than a year of history.',
+    calcYear:'Year',
+    howCalc:'Projection calculator: it takes each asset\'s historical annual return (5-year CAGR, or since inception if it has at least a year) and weights it by the weights you choose, adjusted to add up to 100%. It projects with monthly compounding: the starting capital and each monthly contribution grow at that weighted rate. Assets without enough history are left out of the math and flagged.'
   }
 };
 const t = k => (I18N[lang] && I18N[lang][k]) || I18N.es[k] || k;
@@ -261,6 +311,7 @@ function applyLang(){
   $('#langEs').classList.toggle('on', lang==='es');
   $('#langEn').classList.toggle('on', lang==='en');
   render();
+  buildCalc();
 }
 function setLang(l){ lang = l; localStorage.setItem('scannerLang', l); applyLang(); if(lastUpdated) $('#updated').textContent = t('updated') + new Date(lastUpdated).toLocaleString(lang==='en'?'en-US':'es-US'); }
 
@@ -278,6 +329,7 @@ async function load(force){
     const hint = $('#emptyHint');
     hint.hidden = false; hint.textContent = t('emptyList');
     render();
+    buildCalc();
     return;
   }
   $('#emptyHint').hidden = true;
@@ -302,6 +354,7 @@ async function load(force){
     lastUpdated = j.updatedAt;
     $('#updated').textContent = t('updated') + new Date(j.updatedAt).toLocaleString(lang==='en'?'en-US':'es-US');
     render();
+    buildCalc();
   }catch(e){ $('#err').textContent = t('loadError') + e.message; }
 }
 
@@ -501,6 +554,82 @@ function render(){
     }
   }
 }
+
+// ---------- Calculadora de proyección (debajo de la tabla) ----------
+// Usa la lista del usuario: cada símbolo lleva un peso (deslizador) y su
+// rendimiento anual histórico (CAGR 5 años del servidor). La tasa del
+// portafolio es el promedio ponderado; los pesos se normalizan a 100% y los
+// activos sin historia suficiente quedan fuera (se avisa cuáles).
+let cagrData = {}, calcWeights = {};
+function fmtMoney(n){
+  return '$' + Math.round(n).toLocaleString(lang === 'en' ? 'en-US' : 'es-US');
+}
+async function buildCalc(){
+  const box = $('#calcRows'); if(!box) return;
+  if(!symbols.length){
+    box.innerHTML = '<p class="sub">' + t('needSymbols') + '</p>';
+    $('#calcBtn').disabled = true; $('#calcResult').innerHTML = ''; return;
+  }
+  for(const s of symbols){ if(calcWeights[s] == null) calcWeights[s] = Math.round(100 / symbols.length); }
+  for(const s of Object.keys(calcWeights)){ if(!symbols.includes(s)) delete calcWeights[s]; }
+  box.innerHTML = symbols.map(s => {
+    const d = data.find(x => x.symbol === s);
+    const cg = cagrData[s];
+    const ret = cg === undefined ? '…' : (cg && cg.cagr != null ? cg.cagr.toFixed(2) + t('calcPerYear') : t('calcNoHist'));
+    return '<div class="calcrow"><span class="csym">' + esc(d ? d.display : s) + '</span><input type="range" min="0" max="100" value="' + calcWeights[s] + '" data-sym="' + esc(s) + '"><span class="cw">' + calcWeights[s] + '%</span><span class="cret">' + esc(ret) + '</span></div>';
+  }).join('');
+  box.querySelectorAll('input[type=range]').forEach(inp => {
+    inp.addEventListener('input', () => { calcWeights[inp.dataset.sym] = Number(inp.value); inp.nextElementSibling.textContent = inp.value + '%'; });
+  });
+  const missing = symbols.filter(s => cagrData[s] === undefined);
+  if(missing.length){
+    $('#calcBtn').disabled = true; $('#calcBtn').textContent = t('calcLoadingRet');
+    try{
+      const r = await fetch('/api/cagr?symbols=' + encodeURIComponent(missing.join(',')));
+      const j = await r.json();
+      for(const x of (j.symbols || [])) cagrData[x.symbol] = x;
+    }catch(e){ for(const s of missing) cagrData[s] = null; }
+    $('#calcBtn').disabled = false; $('#calcBtn').textContent = t('calcRun');
+    buildCalc();
+  }
+}
+function runCalc(){
+  const P = Math.max(0, parseFloat($('#calcInitial').value) || 0);
+  const PMT = Math.max(0, parseFloat($('#calcMonthly').value) || 0);
+  const n = Math.min(40, Math.max(1, parseInt($('#calcYears').value) || 8));
+  const res = $('#calcResult');
+  const usable = symbols.filter(s => cagrData[s] && cagrData[s].cagr != null);
+  const excluded = symbols.filter(s => !(cagrData[s] && cagrData[s].cagr != null));
+  const wsum = usable.reduce((a, s) => a + (calcWeights[s] || 0), 0);
+  if(!usable.length || wsum <= 0){ res.innerHTML = '<p>' + t('calcNoUsable') + '</p>'; return; }
+  let r = 0;
+  for(const s of usable) r += (calcWeights[s] / wsum) * (cagrData[s].cagr / 100);
+  const rm = Math.pow(1 + r, 1 / 12) - 1;
+  const valueAt = m => { const g = Math.pow(1 + rm, m); return P * g + (rm === 0 ? PMT * m : PMT * (g - 1) / rm); };
+  const months = n * 12;
+  const fv = valueAt(months);
+  const contrib = P + PMT * months;
+  const pts = [];
+  for(let y = 0; y <= n; y++) pts.push(valueAt(y * 12));
+  const W = 700, H = 180, Pd = 8;
+  let min = Math.min(...pts), max = Math.max(...pts);
+  const pad = (max - min) * 0.06 || 1; min -= pad; max += pad;
+  const X = i => Pd + i * (W - 2 * Pd) / n, Y = v => H - Pd - ((v - min) / (max - min)) * (H - 2 * Pd);
+  let path = '';
+  pts.forEach((v, i) => { path += (path ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1) + ' '; });
+  const miles = [];
+  for(let y = 0; y <= n; y += 5) miles.push(t('calcYear') + ' ' + y + ': ' + fmtMoney(pts[y]));
+  if(n % 5 !== 0) miles.push(t('calcYear') + ' ' + n + ': ' + fmtMoney(pts[n]));
+  let html = '<div>' + t('calcRate') + ': <b>' + (r * 100).toFixed(2) + '%</b></div>';
+  html += '<div>' + t('calcContrib') + ': <b>' + fmtMoney(contrib) + '</b></div>';
+  html += '<div>' + t('calcFinal') + ': <b>' + fmtMoney(fv) + '</b></div>';
+  html += '<div>' + t('calcGain') + ': <b class="' + (fv - contrib >= 0 ? 'up' : 'down') + '">' + fmtMoney(fv - contrib) + '</b></div>';
+  html += '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none"><path d="' + path + '" fill="none" stroke="#22c55e" stroke-width="1.8"/></svg>';
+  html += '<div class="legend">' + miles.join(' · ') + '</div>';
+  if(excluded.length) html += '<div>' + t('calcExcluded') + excluded.map(s => { const d = data.find(x => x.symbol === s); return esc(d ? d.display : s); }).join(', ') + '</div>';
+  res.innerHTML = html;
+}
+$('#calcBtn').addEventListener('click', runCalc);
 
 $('#filters').addEventListener('click', e=>{
   if(e.target.tagName!=='BUTTON') return;
