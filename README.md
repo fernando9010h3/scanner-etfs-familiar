@@ -31,6 +31,7 @@ Abre http://localhost:3000 — el puerto se puede cambiar con la variable `PORT`
 - **🎯 Cerca SMA 200**: marca en la fila y filtro para los símbolos a menos de 1% de su SMA 200. Si el precio está por encima, la marca dice «Casi en zona premium» (por entrar al punto 1 del curso); si está por debajo, «Saliendo de zona premium». En el detalle, la distancia a la SMA 200 se resalta cuando está en la banda.
 - **Próximo punto**: columna que dice cuánto tiene que caer el precio para tocar la siguiente media del curso, en orden 20 → 50 → 100 → 200 (ej: «−3,20% → SMA 20 (Punto 4)»). Si ya está debajo de todas, dice «En Punto 1 · zona premium». Es el punto OBJETIVO, distinto de la marca 🎯 (que solo mira la cercanía a la SMA 200).
 - **Mini-gráfico**: sparkline de 6 meses en cada fila (serie de cierres que ya trae el servidor); verde si subió en el periodo, roja si bajó.
+- **Insignia Punto del profesor**: marca en la fila con el punto ACTUAL del curso — Punto 1 si está debajo de todas las SMA (zona premium), Punto 2 si está debajo de la 100 pero sobre la 200, Punto 3 si está debajo de la 50 pero sobre la 100, Punto 4 si está debajo de la 20 pero sobre la 50; si está sobre todas, «Sin punto». Distinta de la columna «Próximo punto» (que dice cuál viene después).
 - **Rango 52 semanas** y serie de 6 meses (cierres + SMA 20/50) para el gráfico del detalle de cada fila.
 
 ## Fórmula del Nivel 0–100
