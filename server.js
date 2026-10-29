@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const CACHE_MS = 15 * 60 * 1000;
 
-const DEFAULT_SYMBOLS = ['SPYM', 'QQQM', 'SCHD', 'RSP', 'JEPQ', 'SPMO', 'VTI', 'SCHG', 'META', 'AAPL'];
+const DEFAULT_SYMBOLS = ['SPYM', 'QQQM', 'RSP', 'JEPQ', 'SPMO'];
 // En el scanner de Fernando, Apple se muestra como «APPLE» pero el símbolo real es AAPL.
 const DISPLAY = { AAPL: 'APPLE' };
 const SMA_PERIODS = [20, 50, 100, 200];

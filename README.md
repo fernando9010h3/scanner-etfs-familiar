@@ -14,7 +14,7 @@ Abre http://localhost:3000 — el puerto se puede cambiar con la variable `PORT`
 ## Qué hace
 
 - El servidor pide a Yahoo Finance (API de gráficos `v8/finance/chart`, con `User-Agent` de navegador; si `query1` falla reintenta con `query2`) los cierres diarios del último año de cada símbolo.
-- Endpoint JSON: `GET /api/scanner` devuelve los 10 símbolos iniciales (SPYM, QQQM, SCHD, RSP, JEPQ, SPMO, VTI, SCHG, META y AAPL). Acepta `?symbols=SPYM,QQQM` para pedir otros símbolos (los que el usuario agregue en la página). La fila de Apple se consulta como **AAPL** y se muestra como **«APPLE»**, igual que en el scanner de Fernando.
+- Endpoint JSON: `GET /api/scanner` devuelve los 5 símbolos iniciales, solo los ETFs del portafolio del maestro Ernesto (SPYM, QQQM, RSP, JEPQ, SPMO, desde el 29/10/2026). Acepta `?symbols=SPYM,QQQM` para pedir otros símbolos (los que el usuario agregue en la página).
 - Caché en memoria de 15 minutos por símbolo. La página se auto-refresca sola cada 15 minutos y muestra «Actualizado: <hora>».
 - Tipo tomado de Yahoo (`instrumentType`): ETF → píldora «ETF» morada; EQUITY → «Stock» celeste.
 
